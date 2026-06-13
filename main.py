@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""AI-bot 진입점(Entry Point) 모듈입니다."""
+"""Asset-jun-bot 진입점(Entry Point) 모듈입니다."""
 
 import asyncio
 import logging
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 async def async_main():
   """비동기 메인 실행 루프입니다."""
-  logger.info("AI-bot 구동을 시작합니다...")
+  logger.info("Asset-jun-bot 구동을 시작합니다...")
 
   try:
     # 1. 설정 로드

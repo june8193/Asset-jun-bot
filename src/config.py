@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 
 class Config:
-  """AI-bot 설정을 관리하는 클래스입니다."""
+  """Asset-jun-bot 설정을 관리하는 클래스입니다."""
 
   def __init__(
       self,
