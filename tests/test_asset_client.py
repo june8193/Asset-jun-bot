@@ -4,8 +4,8 @@
 import pytest
 import respx
 from httpx import Response, HTTPStatusError, RequestError
-from src.config import Config
-from src.asset_client import get_asset_summary
+from asset_jun_bot.config import Config
+from asset_jun_bot.asset_client import get_asset_summary
 
 
 @pytest.fixture(autouse=True)

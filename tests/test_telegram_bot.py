@@ -5,8 +5,8 @@ import pytest
 import respx
 from httpx import Response
 from unittest.mock import AsyncMock, MagicMock
-from src.config import Config
-from src.telegram_bot import TelegramBot
+from asset_jun_bot.config import Config
+from asset_jun_bot.telegram_bot import TelegramBot
 
 
 @pytest.fixture

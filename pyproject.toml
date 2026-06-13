@@ -17,3 +17,13 @@ dev = [
     "pytest-mock>=3.15.1",
     "respx>=0.23.1",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+asset-jun-bot = "asset_jun_bot.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/asset_jun_bot"]

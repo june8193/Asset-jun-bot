@@ -5,9 +5,9 @@ import asyncio
 import logging
 import os
 import sys
-from src.config import Config
-from src.agent_runner import AgentRunner
-from src.telegram_bot import TelegramBot
+from asset_jun_bot.config import Config
+from asset_jun_bot.agent_runner import AgentRunner
+from asset_jun_bot.telegram_bot import TelegramBot
 
 # 로깅 설정
 logging.basicConfig(

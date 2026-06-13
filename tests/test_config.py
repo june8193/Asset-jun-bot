@@ -3,13 +3,13 @@
 
 import os
 import pytest
-from src.config import Config
+from asset_jun_bot.config import Config
 
 
 @pytest.fixture(autouse=True)
 def mock_load_dotenv(mocker):
   """load_dotenv가 실제 .env 파일을 로드하지 못하게 모킹하여 테스트 환경을 격리합니다."""
-  mocker.patch("src.config.load_dotenv")
+  mocker.patch("asset_jun_bot.config.load_dotenv")
 
 
 def test_config_missing_telegram_token(monkeypatch):

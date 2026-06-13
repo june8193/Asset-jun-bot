@@ -3,7 +3,7 @@
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from src.agent_runner import AgentRunner
+from asset_jun_bot.agent_runner import AgentRunner
 
 
 @pytest.fixture(autouse=True)
@@ -32,8 +32,8 @@ async def test_agent_runner_ask_success(mocker):
   mock_chat_response.text = AsyncMock(return_value="안녕하세요! 모킹된 답변입니다.")
 
   # Agent 생성자 모킹
-  mock_agent_class = mocker.patch("src.agent_runner.Agent", return_value=mock_agent_instance)
-  mock_config_class = mocker.patch("src.agent_runner.LocalAgentConfig")
+  mock_agent_class = mocker.patch("asset_jun_bot.agent_runner.Agent", return_value=mock_agent_instance)
+  mock_config_class = mocker.patch("asset_jun_bot.agent_runner.LocalAgentConfig")
 
   runner = AgentRunner()
   response_text = await runner.ask("안녕?")
@@ -53,8 +53,8 @@ async def test_agent_runner_exception(mocker):
   mock_agent_instance.__aexit__ = AsyncMock(return_value=None)
   mock_agent_instance.chat = AsyncMock(side_effect=RuntimeError("Gemini API Error"))
 
-  mocker.patch("src.agent_runner.Agent", return_value=mock_agent_instance)
-  mocker.patch("src.agent_runner.LocalAgentConfig")
+  mocker.patch("asset_jun_bot.agent_runner.Agent", return_value=mock_agent_instance)
+  mocker.patch("asset_jun_bot.agent_runner.LocalAgentConfig")
 
   runner = AgentRunner()
   response_text = await runner.ask("오류 테스트")
