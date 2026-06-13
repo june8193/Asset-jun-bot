@@ -1,0 +1,19 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# 개인 작업 폴더
+work
+
+# Environment variables & secrets
+.env
+
+# Pytest cache
+.pytest_cache/
