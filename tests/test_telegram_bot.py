@@ -16,6 +16,7 @@ def mock_config():
       telegram_bot_token="mock_bot_token",
       telegram_allowed_user_ids={12345},
       asset_manager_api_url="http://mock-asset-server",
+      gemini_api_key="mock_gemini_key",
   )
 
 

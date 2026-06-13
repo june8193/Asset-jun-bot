@@ -13,6 +13,7 @@ def mock_config(monkeypatch):
   """테스트용 환경 변수 및 설정을 주입합니다."""
   monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "mock_token")
   monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "12345")
+  monkeypatch.setenv("GEMINI_API_KEY", "mock_gemini_key")
   monkeypatch.setenv("ASSET_MANAGER_API_URL", "http://mock-asset-server")
 
 
@@ -37,7 +38,7 @@ async def test_get_asset_summary_success():
   assert "순자산" in result
   assert "100,000,000" in result
   assert "수익률" in result
-  assert "12.5%" in result
+  assert "12.50%" in result
 
 
 @pytest.mark.asyncio
