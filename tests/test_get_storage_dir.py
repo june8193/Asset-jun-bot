@@ -17,60 +17,34 @@ def mock_load_dotenv(mocker):
     mocker.patch("scripts.get_storage_dir.load_dotenv")
 
 
-def test_get_storage_dir_windows(monkeypatch, capsys, mocker):
-    """Windows 환경일 때 STORAGE_DIR_WINDOWS 환경 변수를 우선 채택하는지 검증합니다."""
-    mocker.patch("platform.system", return_value="Windows")
-    
-    test_path_win = "C:\\test\\win_storage"
-    test_path_mac = "/Users/test/mac_storage"
-    
-    monkeypatch.setenv("STORAGE_DIR_WINDOWS", test_path_win)
-    monkeypatch.setenv("STORAGE_DIR_MAC", test_path_mac)
+def test_get_storage_dir_success(monkeypatch, capsys):
+    """STORAGE_DIR 환경 변수가 정상 경로일 때 올바른 절대 경로를 출력하는지 검증합니다."""
+    test_path = "C:\\test\\storage_dir"
+    monkeypatch.setenv("STORAGE_DIR", test_path)
     
     main()
     
     captured = capsys.readouterr()
-    assert captured.out.strip() == os.path.abspath(test_path_win)
-    assert captured.err == ""
-
-
-def test_get_storage_dir_mac(monkeypatch, capsys, mocker):
-    """macOS (Darwin) 환경일 때 STORAGE_DIR_MAC 환경 변수를 우선 채택하는지 검증합니다."""
-    mocker.patch("platform.system", return_value="Darwin")
-    
-    test_path_win = "C:\\test\\win_storage"
-    test_path_mac = "~/mac_storage"  # 틸다 포함 경로 테스트
-    
-    monkeypatch.setenv("STORAGE_DIR_WINDOWS", test_path_win)
-    monkeypatch.setenv("STORAGE_DIR_MAC", test_path_mac)
-    
-    main()
-    
-    captured = capsys.readouterr()
-    expected_path = os.path.abspath(os.path.expanduser(test_path_mac))
+    expected_path = os.path.abspath(test_path)
     assert captured.out.strip() == expected_path
     assert captured.err == ""
 
 
-def test_get_storage_dir_fallback(monkeypatch, capsys, mocker):
-    """OS 전용 환경 변수가 없으면 공통 STORAGE_DIR 변수로 폴백하는지 검증합니다."""
-    mocker.patch("platform.system", return_value="Darwin")
-    
-    test_path_common = "/Users/test/common_storage"
-    monkeypatch.delenv("STORAGE_DIR_MAC", raising=False)
-    monkeypatch.setenv("STORAGE_DIR", test_path_common)
+def test_get_storage_dir_tilde_expansion(monkeypatch, capsys):
+    """STORAGE_DIR 경로에 틸다(~)가 포함되어 있을 때 사용자 홈 경로로 치환하여 변환하는지 검증합니다."""
+    test_path = "~/my_storage"
+    monkeypatch.setenv("STORAGE_DIR", test_path)
     
     main()
     
     captured = capsys.readouterr()
-    assert captured.out.strip() == os.path.abspath(test_path_common)
+    expected_path = os.path.abspath(os.path.expanduser(test_path))
+    assert captured.out.strip() == expected_path
     assert captured.err == ""
 
 
-def test_get_storage_dir_missing(monkeypatch, capsys, mocker):
-    """모든 환경 변수가 설정되어 있지 않을 때 오류 메시지를 출력하고 SystemExit을 발생하는지 검증합니다."""
-    mocker.patch("platform.system", return_value="Windows")
-    monkeypatch.delenv("STORAGE_DIR_WINDOWS", raising=False)
+def test_get_storage_dir_missing(monkeypatch, capsys):
+    """STORAGE_DIR 환경 변수가 설정되어 있지 않을 때 오류 메시지를 출력하고 SystemExit(1)을 발생하는지 검증합니다."""
     monkeypatch.delenv("STORAGE_DIR", raising=False)
     
     with pytest.raises(SystemExit) as excinfo:
