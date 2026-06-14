@@ -1,0 +1,135 @@
+/* 
+ * PDF 보고서용 프리미엄 CSS 스타일시트 (pdf_style.css)
+ * [Anthropic Claude.com Warm Editorial Design System]
+ * 
+ * 폰트 설정(@font-face)은 변환 스크립트가 실행될 때 자동으로 상단에 바인딩됩니다.
+ * 폰트 적용 시 font-family: 'MalgunGothic'을 사용해 주세요.
+ */
+
+body {
+    font-family: 'MalgunGothic', sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.75;
+    color: #3d3d3a; /* Body - default running-text */
+    background-color: #faf9f5; /* Canvas - warm cream floor */
+    margin: 35px;
+}
+
+/* 제목 영역 */
+h1 {
+    font-size: 24pt;
+    color: #141413; /* Ink - warm dark headline */
+    margin-bottom: 8px;
+    text-align: center;
+    font-weight: normal; /* Claude display uses regular weight 400 */
+    letter-spacing: -0.8px; /* Negative letter-spacing is non-negotiable */
+}
+
+/* 부제목 (작성일자, 대상 등) */
+.subtitle {
+    text-align: center;
+    color: #6c6a64; /* Muted */
+    font-size: 10pt;
+    margin-bottom: 35px;
+}
+
+/* 대주제 타이틀 */
+h2 {
+    font-size: 14pt;
+    color: #1E293B;
+    border-bottom: 1px solid #e6dfd8; /* Hairline divider */
+    padding-bottom: 8px;
+    margin-top: 35px;
+    margin-bottom: 18px;
+    font-weight: normal;
+    letter-spacing: -0.4px;
+}
+
+/* 소주제 타이틀 */
+h3 {
+    font-size: 11.5pt;
+    color: #141413; /* Ink */
+    margin-top: 22px;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+p {
+    margin-bottom: 12px;
+}
+
+/* 프리미엄 테이블 스타일 */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    margin-bottom: 25px;
+}
+
+th {
+    background-color: #efe9de; /* Surface Card - feature/content card background */
+    color: #141413; /* Ink */
+    font-weight: bold;
+    border-bottom: 2px solid #e6dfd8; /* Hairline */
+    padding: 12px 10px;
+    text-align: left;
+    font-size: 9.5pt;
+}
+
+td {
+    border-bottom: 1px solid #e6dfd8; /* Hairline */
+    padding: 12px 10px;
+    color: #3d3d3a;
+    font-size: 9.5pt;
+}
+
+/* Zebra Striping (짝수 행 배경색 변경) */
+tr:nth-child(even) td {
+    background-color: #f5f0e8; /* Surface Soft */
+}
+
+/* 목록 스타일 */
+ul {
+    margin-top: 5px;
+    margin-bottom: 20px;
+    padding-left: 15px;
+}
+
+li {
+    margin-bottom: 8px;
+    color: #3d3d3a;
+}
+
+/* 인라인 코드 및 강조 구문 */
+code {
+    font-family: 'MalgunGothic', monospace;
+    background-color: #f5f0e8; /* Surface Soft */
+    color: #141413;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 9pt;
+}
+
+/* AI 비서 종합 의견용 웜 에디토리얼 Callout 카드 */
+blockquote {
+    background-color: #efe9de; /* Surface Card */
+    border-left: 4px solid #cc785c; /* Primary Accent - Anthropic Coral */
+    padding: 15px 20px;
+    margin: 25px 0;
+    border-radius: 0px 8px 8px 0px; /* 오른쪽 부분 둥글게 적용 */
+}
+
+blockquote p {
+    margin: 0;
+    color: #141413; /* Ink */
+    font-weight: bold;
+}
+
+/* 구분선 */
+hr {
+    border: 0;
+    border-top: 1px solid #e6dfd8; /* Hairline */
+    margin-top: 30px;
+    margin-bottom: 30px;
+}
+
