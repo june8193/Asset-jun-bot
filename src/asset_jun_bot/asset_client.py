@@ -83,6 +83,45 @@ class WatchlistPricesResponse(BaseModel):
   prices: List[WatchlistItemPrice] = Field(..., description="관심종목 목록")
 
 
+class MarketIndexItem(BaseModel):
+  """시장 지수 세부 정보 모델입니다.
+
+  Attributes:
+      index_name: 지수 명칭 (예: KOSPI, KOSDAQ 등)
+      current_price: 현재 지수 포인트 값
+      change_rate: 전일 대비 등락률 (%)
+  """
+  index_name: str = Field(..., description="지수 명칭")
+  current_price: float = Field(..., description="현재 지수 값")
+  change_rate: float = Field(..., description="등락률 (%)")
+
+
+class MarketIndicesResponse(BaseModel):
+  """시장 지수 목록 응답 Pydantic 모델입니다.
+
+  Attributes:
+      indices: 시장 지수 목록
+  """
+  indices: List[MarketIndexItem] = Field(..., description="시장 지수 목록")
+
+
+class MarketHolidayResponse(BaseModel):
+  """시장 휴장일 여부 응답 Pydantic 모델입니다.
+
+  Attributes:
+      date: 검증 대상 날짜 (YYYY-MM-DD)
+      country: 국가 코드 (KR, US 등)
+      is_holiday: 휴장일 여부 (True인 경우 휴장일)
+      description: 휴장 사유 (예: 주말, 설 연휴, 영업일 등)
+  """
+  date: str = Field(..., description="검증 대상 날짜")
+  country: str = Field(..., description="국가 코드")
+  is_holiday: bool = Field(..., description="휴장일 여부")
+  description: str = Field(..., description="휴장 사유")
+
+
+
+
 async def get_asset_summary() -> AssetSummaryResponse:
   """AssetManager API로부터 자산 요약 정보를 조회하여 Pydantic 모델로 반환합니다.
 
@@ -231,3 +270,99 @@ async def get_watchlist_prices(country: str = "KR") -> WatchlistPricesResponse:
     ) from exc
   except Exception as exc:
     raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
+
+
+async def get_market_indices() -> MarketIndicesResponse:
+  """AssetManager API로부터 KOSPI/KOSDAQ 지수 정보를 조회하여 Pydantic 모델로 반환합니다.
+
+  Returns:
+      MarketIndicesResponse: 코스피, 코스닥 지수 정보를 담은 Pydantic 객체
+
+  Raises:
+      AssetClientError: 설정 로드 실패, HTTP 호출 실패 또는 네트워크 오류 발생 시
+  """
+  try:
+    config = Config.load()
+  except ValueError as err:
+    raise AssetClientError(f"설정 로드 중 오류 발생: {err}") from err
+
+  url = f"{config.asset_manager_api_url}/api/market/indices"
+
+  try:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+      response = await client.get(url)
+      response.raise_for_status()
+      data = response.json()
+
+      indices = []
+      for item in data:
+        indices.append(
+            MarketIndexItem(
+                index_name=item.get("index_name", ""),
+                current_price=item.get("current_price", 0.0),
+                change_rate=item.get("change_rate", 0.0),
+            )
+        )
+
+      return MarketIndicesResponse(indices=indices)
+
+  except httpx.HTTPStatusError as exc:
+    raise AssetClientError(
+        f"AssetManager API 호출 실패 (HTTP 오류 코드: {exc.response.status_code})"
+    ) from exc
+  except httpx.RequestError as exc:
+    raise AssetClientError(
+        f"AssetManager API 서버 연결 네트워크 오류: {exc}"
+    ) from exc
+  except Exception as exc:
+    raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
+
+
+async def check_market_holiday(date_str: str = "", country: str = "KR") -> MarketHolidayResponse:
+  """AssetManager API로부터 특정 날짜의 특정 국가 시장 휴장일 여부를 조회하여 Pydantic 모델로 반환합니다.
+
+  Args:
+      date_str: 조회할 날짜 ("YYYY-MM-DD", 기본값 ""인 경우 오늘 날짜)
+      country: 국가 코드 ("KR" 또는 "US", 기본값 "KR")
+
+  Returns:
+      MarketHolidayResponse: 시장 휴장일 판정 데이터를 담은 Pydantic 객체
+
+  Raises:
+      AssetClientError: 설정 로드 실패, HTTP 호출 실패 또는 네트워크 오류 발생 시
+  """
+  try:
+    config = Config.load()
+  except ValueError as err:
+    raise AssetClientError(f"설정 로드 중 오류 발생: {err}") from err
+
+  url = f"{config.asset_manager_api_url}/api/market/holiday"
+  params = {"country": country.upper()}
+  if date_str:
+    params["date"] = date_str
+
+  try:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+      response = await client.get(url, params=params)
+      response.raise_for_status()
+      data = response.json()
+
+      return MarketHolidayResponse(
+          date=data.get("date", ""),
+          country=data.get("country", country.upper()),
+          is_holiday=data.get("is_holiday", False),
+          description=data.get("description", "영업일"),
+      )
+
+  except httpx.HTTPStatusError as exc:
+    raise AssetClientError(
+        f"AssetManager API 호출 실패 (HTTP 오류 코드: {exc.response.status_code})"
+    ) from exc
+  except httpx.RequestError as exc:
+    raise AssetClientError(
+        f"AssetManager API 서버 연결 네트워크 오류: {exc}"
+    ) from exc
+  except Exception as exc:
+    raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
+
+

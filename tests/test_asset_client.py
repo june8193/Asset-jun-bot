@@ -9,9 +9,13 @@ from asset_jun_bot.asset_client import (
     get_asset_summary,
     get_asset_ratios,
     get_watchlist_prices,
+    get_market_indices,
+    check_market_holiday,
     AssetSummaryResponse,
     AssetRatiosResponse,
     WatchlistPricesResponse,
+    MarketIndicesResponse,
+    MarketHolidayResponse,
     AssetClientError,
 )
 
@@ -184,3 +188,116 @@ async def test_get_watchlist_prices_http_error():
 
   with pytest.raises(AssetClientError):
     await get_watchlist_prices(country="KR")
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_market_indices_success():
+  """시장 지수 조회 API 호출 성공 시 올바른 Pydantic 응답 모델을 반환하는지 테스트합니다."""
+  mock_data = [
+      {
+          "index_name": "KOSPI",
+          "current_price": 2700.50,
+          "change_rate": 1.25
+      },
+      {
+          "index_name": "KOSDAQ",
+          "current_price": 850.20,
+          "change_rate": -0.45
+      }
+  ]
+  respx.get("http://mock-asset-server/api/market/indices").mock(
+      return_value=Response(200, json=mock_data)
+  )
+
+  result = await get_market_indices()
+  assert isinstance(result, MarketIndicesResponse)
+  assert len(result.indices) == 2
+  assert result.indices[0].index_name == "KOSPI"
+  assert result.indices[0].current_price == 2700.50
+  assert result.indices[0].change_rate == 1.25
+  assert result.indices[1].index_name == "KOSDAQ"
+  assert result.indices[1].current_price == 850.20
+  assert result.indices[1].change_rate == -0.45
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_market_indices_http_error():
+  """시장 지수 조회 API 호출 시 HTTP 에러가 발생했을 때 AssetClientError 예외를 발생시키는지 테스트합니다."""
+  respx.get("http://mock-asset-server/api/market/indices").mock(
+      return_value=Response(500)
+  )
+
+  with pytest.raises(AssetClientError):
+    await get_market_indices()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_market_indices_network_error():
+  """시장 지수 조회 API 호출 시 네트워크 에러가 발생했을 때 AssetClientError 예외를 발생시키는지 테스트합니다."""
+  respx.get("http://mock-asset-server/api/market/indices").mock(
+      side_effect=RequestError("Connection refused")
+  )
+
+  with pytest.raises(AssetClientError):
+    await get_market_indices()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_check_market_holiday_success_holiday():
+  """시장 휴장일 여부 조회 API 호출 성공 시 휴일 정보를 올바르게 반환하는지 테스트합니다."""
+  mock_data = {
+      "date": "2026-06-14",
+      "country": "KR",
+      "is_holiday": True,
+      "description": "주말"
+  }
+  respx.get("http://mock-asset-server/api/market/holiday?date=2026-06-14&country=KR").mock(
+      return_value=Response(200, json=mock_data)
+  )
+
+  result = await check_market_holiday("2026-06-14", country="KR")
+  assert isinstance(result, MarketHolidayResponse)
+  assert result.date == "2026-06-14"
+  assert result.country == "KR"
+  assert result.is_holiday is True
+  assert result.description == "주말"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_check_market_holiday_success_workday():
+  """시장 휴장일 여부 조회 API 호출 성공 시 영업일 정보를 올바르게 반환하는지 테스트합니다."""
+  mock_data = {
+      "date": "2026-06-15",
+      "country": "KR",
+      "is_holiday": False,
+      "description": "영업일"
+  }
+  respx.get("http://mock-asset-server/api/market/holiday?date=2026-06-15&country=KR").mock(
+      return_value=Response(200, json=mock_data)
+  )
+
+  result = await check_market_holiday("2026-06-15", country="KR")
+  assert isinstance(result, MarketHolidayResponse)
+  assert result.date == "2026-06-15"
+  assert result.country == "KR"
+  assert result.is_holiday is False
+  assert result.description == "영업일"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_check_market_holiday_http_error():
+  """시장 휴장일 여부 조회 API 호출 시 HTTP 에러 발생할 때 AssetClientError를 반환하는지 테스트합니다."""
+  respx.get("http://mock-asset-server/api/market/holiday?date=2026-06-14&country=KR").mock(
+      return_value=Response(500)
+  )
+
+  with pytest.raises(AssetClientError):
+    await check_market_holiday("2026-06-14", country="KR")
+
+
