@@ -10,6 +10,7 @@ from .asset_client import (
     get_asset_summary,
     get_asset_ratios,
     get_watchlist_prices,
+    send_telegram_message,
     AssetClientError,
 )
 
@@ -55,8 +56,9 @@ class AgentRunner:
         "1. 총자산, 총 투자 원금, 누적 투자 수익, 투자수익률 등 요약 요청: get_asset_summary 도구 사용\n"
         "2. 자산군별 백분율 비중(현금, 주식 등) 요청: get_asset_ratios 도구 사용\n"
         "3. 관심종목 시세 및 실시간 주가 요청 (예: '국내 관심종목 가격 어때?', '미국 종목 보여줘'): get_watchlist_prices 도구 사용 (국가 구분에 따라 country='KR' 또는 country='US' 인자 전달)\n"
+        "4. 텔레그램 메시지 발송 요청: send_telegram_message 도구 사용 (message 인자 전달)\n"
         "각 도구(Tool)는 가공되지 않은 자산 데이터를 객체 형태로 반환합니다. 이 데이터를 바탕으로 사용자에게 친절하게 한국어 자연어와 가독성 있는 마크다운 서식을 활용해 브리핑해 주십시오.\n"
-        "⚠️ 중요: 당신에게는 로컬 파일 시스템이나 디렉터리를 직접 조회(list_directory, view_file 등)할 권한이 전혀 없으며, 이러한 시도는 보안 정책상 항상 차단됩니다. 따라서 절대로 파일 시스템 관련 도구 호출을 시도하지 마시고, 오직 위의 세 비즈니스 도구(get_asset_summary, get_asset_ratios, get_watchlist_prices)만을 활용해 질문에 대답하십시오. 관심종목 조회가 필요할 시에는 즉시 get_watchlist_prices 도구를 사용하십시오.\n"
+        "⚠️ 중요: 당신에게는 로컬 파일 시스템이나 디렉터리를 직접 조회(list_directory, view_file 등)할 권한이 전혀 없으며, 이러한 시도는 보안 정책상 항상 차단됩니다. 따라서 절대로 파일 시스템 관련 도구 호출을 시도하지 마시고, 오직 위의 네 비즈니스 도구(get_asset_summary, get_asset_ratios, get_watchlist_prices, send_telegram_message)만을 활용해 질문에 대답하십시오. 관심종목 조회가 필요할 시에는 즉시 get_watchlist_prices 도구를 사용하십시오.\n"
         "⚠️ 중요: 텔레그램 메신저는 마크다운 표(Table, |---| 구문)를 지원하지 않아 깨져서 보입니다. 따라서 정보를 출력할 때 절대로 표(Table) 구문을 사용하지 말고, 대신 이모지(Emoji), 줄 바꿈, 그리고 강조(굵은 글씨)가 들어간 리스트(bullet points) 서식을 사용하여 모바일 화면에서도 깨짐 없이 한눈에 들어오도록 구성하십시오.\n"
         "비정상적인 투자 리밸런싱 조언이나 과도한 미래 주가 예측은 피하십시오."
     )
@@ -140,12 +142,13 @@ class AgentRunner:
     if task_type == "ASSET_INQUIRY":
       model_name = self.config.model_asset_inquiry if self.config else "gemini-1.5-flash"
       system_instructions = self.system_instructions_asset
-      tools = [get_asset_summary, get_asset_ratios, get_watchlist_prices]
+      tools = [get_asset_summary, get_asset_ratios, get_watchlist_prices, send_telegram_message]
       policies = [
           policy.deny_all(),
           policy.allow(get_asset_summary.__name__),
           policy.allow(get_asset_ratios.__name__),
           policy.allow(get_watchlist_prices.__name__),
+          policy.allow(send_telegram_message.__name__),
       ]
     else:  # GENERAL_CONVERSATION 및 기타 폴백
       model_name = self.config.model_general_conversation if self.config else "gemini-2.5-flash"

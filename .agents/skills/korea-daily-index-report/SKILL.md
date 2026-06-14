@@ -57,3 +57,18 @@ description: Generate, save, and convert the daily KOSPI/KOSDAQ index status rep
     uv run python scripts/markdown_to_pdf.py [마크다운 절대경로] [PDF 절대경로]
     ```
 - [ ] **완료 검증**: 변환이 성공적으로 끝났는지 로그 출력을 통해 검증합니다.
+
+### 4단계: 텔레그램 알림 전송 (Telegram Notification)
+- [ ] **메시지 구성**: 작성한 보고서 정보와 핵심 내용을 바탕으로 텔레그램 알림용 메시지를 작성합니다. 메시지에는 아래 정보가 반드시 포함되어야 합니다:
+  - 오늘의 KOSPI/KOSDAQ 지수와 등락률 요약
+  - 주요 경제 뉴스 제목 3~5개 요약
+  - 생성된 마크다운 파일명 및 절대 경로
+  - 생성된 PDF 파일명 및 절대 경로
+- [ ] **메시지 전송**: 쉘 명령어 실행 도구(`run_command` 등)를 호출하여 텔레그램 메시지 전송 스크립트를 구동합니다.
+  - 실행할 명령어:
+    ```bash
+    uv run python scripts/send_telegram.py "[구성한 메시지 내용]"
+    ```
+- [ ] **완료 검증**: 전송이 성공적으로 끝났는지 로그 출력("Telegram message sent successfully...")을 통해 검증합니다.
+
+

@@ -366,3 +366,68 @@ async def check_market_holiday(date_str: str = "", country: str = "KR") -> Marke
     raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
 
 
+async def send_telegram_message(message: str, chat_id: int | None = None) -> str:
+  """텔레그램을 통해 사용자에게 메시지를 전송합니다.
+
+  Args:
+      message: 전송할 메시지 내용 (마크다운 형식 지원)
+      chat_id: 전송할 텔레그램 대화방 ID (생략 시 설정된 모든 허용된 사용자에게 전송)
+
+  Returns:
+      str: 전송 결과 메시지
+
+  Raises:
+      AssetClientError: 설정 로드 실패 또는 텔레그램 API 호출 실패 시
+  """
+  try:
+    config = Config.load()
+  except ValueError as err:
+    raise AssetClientError(f"설정 로드 중 오류 발생: {err}") from err
+
+  base_url = f"https://api.telegram.org/bot{config.telegram_bot_token}"
+  url = f"{base_url}/sendMessage"
+
+  # 전송 대상 chat_id 리스트 결정
+  if chat_id is not None:
+    target_chat_ids = [chat_id]
+  else:
+    target_chat_ids = list(config.telegram_allowed_user_ids)
+
+  if not target_chat_ids:
+    raise AssetClientError("텔레그램 알림을 전송할 수 있는 허용된 사용자 ID가 존재하지 않습니다.")
+
+  success_targets = []
+  async with httpx.AsyncClient(timeout=10.0) as client:
+    for tid in target_chat_ids:
+      payload = {
+          "chat_id": tid,
+          "text": message,
+      }
+
+      # 마크다운 변환 적용
+      try:
+        from .telegram_bot import markdown_to_html
+        payload["text"] = markdown_to_html(message)
+        payload["parse_mode"] = "HTML"
+      except ImportError:
+        pass
+
+      try:
+        response = await client.post(url, json=payload)
+        response.raise_for_status()
+        success_targets.append(str(tid))
+      except httpx.HTTPStatusError as exc:
+        raise AssetClientError(
+            f"텔레그램 메시지 전송 실패 (HTTP 오류 코드: {exc.response.status_code}, 상세: {exc.response.text})"
+        ) from exc
+      except httpx.RequestError as exc:
+        raise AssetClientError(
+            f"텔레그램 API 서버 연결 네트워크 오류: {exc}"
+        ) from exc
+      except Exception as exc:
+        raise AssetClientError(f"텔레그램 전송 중 알 수 없는 오류 발생: {exc}") from exc
+
+  return f"Telegram message sent successfully to {', '.join(success_targets)}."
+
+
+

@@ -11,6 +11,7 @@ from asset_jun_bot.asset_client import (
     get_watchlist_prices,
     get_market_indices,
     check_market_holiday,
+    send_telegram_message,
     AssetSummaryResponse,
     AssetRatiosResponse,
     WatchlistPricesResponse,
@@ -299,5 +300,47 @@ async def test_check_market_holiday_http_error():
 
   with pytest.raises(AssetClientError):
     await check_market_holiday("2026-06-14", country="KR")
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_send_telegram_message_success_specific_chat():
+  """지정된 특정 chat_id로 텔레그램 메시지가 성공적으로 전송되는지 테스트합니다."""
+  respx.post("https://api.telegram.org/botmock_token/sendMessage").mock(
+      return_value=Response(200, json={"ok": True, "result": {"message_id": 999}})
+  )
+
+  result = await send_telegram_message("테스트 메시지", chat_id=12345)
+  assert "successfully" in result
+  assert "12345" in result
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_send_telegram_message_success_all_allowed_users():
+  """chat_id 미지정 시 허용된 모든 사용자에게 텔레그램 메시지가 성공적으로 전송되는지 테스트합니다."""
+  route = respx.post("https://api.telegram.org/botmock_token/sendMessage").mock(
+      return_value=Response(200, json={"ok": True, "result": {"message_id": 999}})
+  )
+
+  # Config에 정의된 TELEGRAM_ALLOWED_USER_IDS는 {12345} 임 (mock_config fixture 기준)
+  result = await send_telegram_message("테스트 메시지")
+  assert "successfully" in result
+  assert "12345" in result
+  assert route.call_count == 1
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_send_telegram_message_http_error():
+  """텔레그램 API 호출 시 HTTP 에러가 발생하면 AssetClientError를 발생시키는지 테스트합니다."""
+  respx.post("https://api.telegram.org/botmock_token/sendMessage").mock(
+      return_value=Response(400, json={"ok": False, "description": "Bad Request"})
+  )
+
+  with pytest.raises(AssetClientError) as exc_info:
+    await send_telegram_message("테스트 메시지", chat_id=12345)
+  assert "HTTP" in str(exc_info.value)
+
 
 
