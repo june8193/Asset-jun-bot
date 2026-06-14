@@ -16,22 +16,21 @@ description: Generate, save, and convert the daily KOSPI/KOSDAQ index status rep
 에이전트는 아래 체크리스트와 가이드에 따라 필요한 도구를 직접 호출하여 작업을 수행합니다.
 
 ### 0단계: 주말 및 휴장일 여부 확인 (Pre-check)
-- [ ] **휴장일 판정 API 호출**: `check_market_holiday(country="KR")` 도구를 호출하여 오늘 날짜의 한국 시장 휴장일 정보(date, country, is_holiday, description)를 조회합니다.
-- [ ] **휴장일 상태 정보 보존**: `is_holiday` 값과 `description` 값을 기억하여 이후 단계에서 분기 처리에 활용합니다. (주말이나 휴장일이라 하더라도 작업을 중단하지 않고 다음 단계를 계속 진행합니다.)
+- [ ] **휴장일 판정 스크립트 실행**: 쉘 명령어 실행 도구(`run_command` 등)를 통해 `uv run python scripts/query_market.py --action holiday` 명령을 실행하여 한국 시장 휴장일 정보(DATE, COUNTRY, IS_HOLIDAY, DESCRIPTION)를 확인합니다.
+- [ ] **휴장일 상태 정보 보존**: `IS_HOLIDAY` 값과 `DESCRIPTION` 값을 기억하여 이후 단계에서 분기 처리에 활용합니다. (주말이나 휴장일이라 하더라도 작업을 중단하지 않고 다음 단계를 계속 진행합니다.)
 
 ### 1단계: 지수 데이터 및 뉴스 수집
 - [ ] **지수 데이터 조회 선택**:
-  - `is_holiday`가 `false`인 경우(정상 영업일): `get_market_indices` 도구를 호출하여 오늘 마감된 KOSPI 및 KOSDAQ 지수와 전일비 등락률 데이터를 획득합니다.
-  - `is_holiday`가 `true`인 경우(휴장일/주말): `get_market_indices` 도구 호출을 **생략**합니다.
+  - `IS_HOLIDAY`가 `False`인 경우(정상 영업일): 쉘 명령어 실행 도구(`run_command` 등)를 통해 `uv run python scripts/query_market.py --action indices` 명령을 실행하여 오늘 마감된 KOSPI 및 KOSDAQ 지수와 전일비 등락률 데이터를 획득합니다.
+  - `IS_HOLIDAY`가 `True`인 경우(휴장일/주말): 지수 조회 명령을 **생략**합니다.
 - [ ] **시장 뉴스 웹 검색**: 평일, 휴장일 여부와 무관하게 기본 웹 검색 도구(`search_web` 등)를 사용하여 오늘 KOSPI 및 KOSDAQ 시장에 영향을 준 주요 경제 뉴스 3~5개를 조사합니다.
 - [ ] **뉴스 링크 확보**: 조사한 각 뉴스 기사는 제목 옆에 반드시 해당 기사의 **URL 출처 링크**([뉴스 제목](URL))를 기재해야 합니다.
   - ⚠️ 중요: 구글 검색 결과로 얻은 `vertexaisearch.cloud.google.com/grounding-api-redirect/...` 주소는 그대로 사용하면 언론사 홈 화면으로 이동하거나 깨지는 문제가 있습니다. 
   - 에이전트는 **쉘 명령어 실행 도구(`run_command` 등)**를 통해 전용 CLI 스크립트(`uv run python scripts/resolve_url.py "[대상 URL]"`)를 실행하여 얻은 **최종 상세 뉴스 기사 URL**로 복원하여 기재해야 합니다.
 
-### 2단계: 마크다운 파일 저장
-- [ ] **저장 파일명**: 오늘 날짜를 기준으로 파일명을 결정합니다. (형식: `Korea_market_daily_report_YYYYMMDD.md`)
-- [ ] **저장 경로**: 환경 변수 `STORAGE_DIR`에서 값을 읽어와 `STORAGE_DIR/reports/korea_market/` 폴더 하위에 저장합니다.
-- [ ] **파일 생성**: 파일 쓰기 도구(`write_to_file` 등)를 호출하여 아래 템플릿 규격에 맞춰 마크다운 파일을 생성합니다.
+### 2단계: 마크다운 파일 생성 및 저장
+- [ ] **저장 경로 확인**: 저장할 디렉터리 경로를 획득하기 위해 쉘 명령어 실행 도구(`run_command` 등)를 통해 `echo $env:STORAGE_DIR` 명령을 실행하여 환경 변수 값을 확인합니다.
+- [ ] **마크다운 파일 생성 및 저장**: 파일 쓰기 도구(`write_to_file` 등)를 호출하여 `STORAGE_DIR/reports/korea_market/Korea_market_daily_report_YYYYMMDD.md` (YYYYMMDD는 오늘 날짜) 경로에 아래 템플릿 규격에 맞춘 새로운 마크다운 파일을 직접 생성하여 저장합니다.
   - **보고서 템플릿**:
     - **평일 (is_holiday=false)인 경우**:
       ```markdown
@@ -84,6 +83,7 @@ description: Generate, save, and convert the daily KOSPI/KOSDAQ index status rep
   - 주요 경제 뉴스 제목 3~5개 요약
   - 생성된 마크다운 파일명 및 절대 경로
   - 생성된 PDF 파일명 및 절대 경로
+  - ⚠️ 중요: 메시지 내용은 HTML 태그를 사용하지 않고 순수 **마크다운(Markdown)** 형식으로 작성하여 인자로 전달해야 합니다. 내부 전송 API가 마크다운을 자동으로 HTML로 변환하여 전송합니다. 또한 텔레그램 메시지에서는 표(Table) 서식이 깨지므로 절대 사용하지 마십시오.
 - [ ] **메시지 전송**: 쉘 명령어 실행 도구(`run_command` 등)를 호출하여 텔레그램 메시지 전송 스크립트를 구동합니다.
   - 실행할 명령어:
     ```bash
