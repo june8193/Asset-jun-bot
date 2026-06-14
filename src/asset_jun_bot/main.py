@@ -7,6 +7,7 @@ import os
 import sys
 from asset_jun_bot.config import Config
 from asset_jun_bot.agent_runner import AgentRunner
+from asset_jun_bot.chat_history_manager import ChatHistoryManager
 from asset_jun_bot.telegram_bot import TelegramBot
 from asset_jun_bot.logging_config import setup_logging
 
@@ -45,7 +46,12 @@ async def async_main():
 
   # 3. 인스턴스 생성
   agent_runner = AgentRunner()
-  bot = TelegramBot(config=config, agent_runner=agent_runner)
+  chat_history_manager = ChatHistoryManager(storage_dir=config.storage_dir)
+  bot = TelegramBot(
+      config=config,
+      agent_runner=agent_runner,
+      chat_history_manager=chat_history_manager,
+  )
 
   # 4. 폴링 루프 실행
   try:

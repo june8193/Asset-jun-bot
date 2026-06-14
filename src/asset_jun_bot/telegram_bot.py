@@ -6,6 +6,7 @@ import logging
 import httpx
 from .config import Config
 from .agent_runner import AgentRunner
+from .chat_history_manager import ChatHistoryManager
 
 logger = logging.getLogger(__name__)
 
@@ -13,15 +14,24 @@ logger = logging.getLogger(__name__)
 class TelegramBot:
   """Telegram 봇의 폴링 및 사용자 요청 핸들러입니다."""
 
-  def __init__(self, config: Config, agent_runner: AgentRunner):
+  def __init__(
+      self,
+      config: Config,
+      agent_runner: AgentRunner,
+      chat_history_manager: ChatHistoryManager | None = None,
+  ):
     """TelegramBot 인스턴스를 생성합니다.
 
     Args:
         config: 로드 완료된 설정 객체
         agent_runner: AI 에이전트 실행기 객체
+        chat_history_manager: 대화 내역 저장 관리 객체
     """
     self.config = config
     self.agent_runner = agent_runner
+    self.chat_history_manager = chat_history_manager or ChatHistoryManager(
+        storage_dir=config.storage_dir
+    )
     self.base_url = f"https://api.telegram.org/bot{self.config.telegram_bot_token}"
 
   async def poll_once(self, offset: int | None = None) -> int | None:
@@ -81,8 +91,19 @@ class TelegramBot:
       # 인가된 사용자의 텍스트 메시지 처리
       if text:
         logger.info(f"사용자 요청 수신 (Chat ID: {chat_id}): {text}")
+        # 사용자 대화 내역 저장
+        await self.chat_history_manager.save_message(
+            user_id=chat_id, role="user", message=text
+        )
+
         # AI 에이전트 호출하여 응답 생성
         reply_text = await self.agent_runner.ask(text)
+
+        # 봇 대화 내역 저장
+        await self.chat_history_manager.save_message(
+            user_id=chat_id, role="bot", message=reply_text
+        )
+
         # 텔레그램 답변 전송
         await self._send_message(chat_id, reply_text)
 
