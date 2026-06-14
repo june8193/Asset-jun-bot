@@ -63,16 +63,27 @@ async def test_telegram_bot_authorized_user(mock_config, mock_agent_runner):
       return_value=Response(200, json=updates_response)
   )
 
-  # sendMessage 모킹
+  # sendMessage 모킹 (임시 메시지 성공 및 message_id: 777 리턴)
   send_message_route = respx.post(
       "https://api.telegram.org/botmock_bot_token/sendMessage"
+  ).mock(return_value=Response(200, json={"ok": True, "result": {"message_id": 777}}))
+
+  # editMessageText 모킹
+  edit_message_route = respx.post(
+      "https://api.telegram.org/botmock_bot_token/editMessageText"
+  ).mock(return_value=Response(200, json={"ok": True}))
+
+  # sendChatAction 모킹
+  respx.post(
+      "https://api.telegram.org/botmock_bot_token/sendChatAction"
   ).mock(return_value=Response(200, json={"ok": True}))
 
   next_offset = await bot.poll_once(offset=None)
 
   # 검증
   assert next_offset == 101
-  mock_agent_runner.ask.assert_called_once_with("내 자산 얼마야?")
+  assert mock_agent_runner.ask.call_count == 1
+  assert mock_agent_runner.ask.call_args[0][0] == "내 자산 얼마야?"
   
   # 대화 내역 저장 검증 (사용자 메시지 1회, 봇 응답 메시지 1회)
   assert mock_chat_history_manager.save_message.call_count == 2
@@ -83,11 +94,16 @@ async def test_telegram_bot_authorized_user(mock_config, mock_agent_runner):
       user_id=12345, role="bot", message="에이전트 답변입니다."
   )
 
+  # 임시 메시지가 발송되었는지 확인
   assert send_message_route.called
-  # 전송된 데이터 바디 확인
-  request_body = send_message_route.calls.last.request.read().decode("utf-8")
-  assert "12345" in request_body
-  assert "에이전트 답변입니다." in request_body
+  req_send_body = send_message_route.calls.last.request.read().decode("utf-8")
+  assert "🔄 [1/3] 요청 분석 중..." in req_send_body
+
+  # editMessageText를 통해 최종 답변이 갔는지 확인
+  assert edit_message_route.called
+  req_edit_body = edit_message_route.calls.last.request.read().decode("utf-8")
+  assert "12345" in req_edit_body
+  assert "에이전트 답변입니다." in req_edit_body
 
 
 @pytest.mark.asyncio
@@ -197,27 +213,117 @@ async def test_telegram_bot_send_message_failure_fallback(mock_config, mock_agen
   # AI 에이전트 답변이 마크다운 에러를 유발할 법한 텍스트라고 가정
   mock_agent_runner.ask.return_value = "오류날 답변: [!NOTE] **에러**"
 
-  # sendMessage 호출에 대해 순차적으로 응답 모킹 (1차: 400 Bad Request, 2차: 200 OK)
+  # sendMessage 모킹 (성공 및 message_id: 888 반환)
   send_message_route = respx.post(
       "https://api.telegram.org/botmock_bot_token/sendMessage"
+  ).mock(return_value=Response(200, json={"ok": True, "result": {"message_id": 888}}))
+
+  # editMessageText 호출에 대해 순차적으로 응답 모킹 (1차: 400 Bad Request, 2차: 200 OK)
+  edit_message_route = respx.post(
+      "https://api.telegram.org/botmock_bot_token/editMessageText"
   ).mock(side_effect=[
       Response(400, json={"ok": False, "description": "Bad Request: can't parse entities"}),
       Response(200, json={"ok": True})
   ])
 
+  # sendChatAction 모킹
+  respx.post(
+      "https://api.telegram.org/botmock_bot_token/sendChatAction"
+  ).mock(return_value=Response(200, json={"ok": True}))
+
   next_offset = await bot.poll_once(offset=None)
 
   assert next_offset == 301
-  # 총 2번 호출되어야 함 (1차 실패 후 2차 fallback)
-  assert send_message_route.call_count == 2
+  # editMessageText가 총 2번 호출되어야 함 (1차 실패 후 2차 fallback 수정)
+  assert edit_message_route.call_count == 2
 
   # 1차 호출 데이터 검증
-  req1_body = send_message_route.calls[0].request.read().decode("utf-8")
+  req1_body = edit_message_route.calls[0].request.read().decode("utf-8")
   assert "HTML" in req1_body
 
   # 2차 호출 데이터 검증
-  req2_body = send_message_route.calls[1].request.read().decode("utf-8")
-  assert "메시지 전송 중 오류가 발생했습니다" in req2_body
+  req2_body = edit_message_route.calls[1].request.read().decode("utf-8")
+  assert "메시지 수정 중 오류가 발생했습니다" in req2_body
   assert "Bad Request: can't parse entities" in req2_body
   assert "오류날 답변: [!NOTE] 에러" in req2_body  # 마크다운 태그(**)가 지워진 채 전달되는지 검증
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_telegram_bot_progress_flow(mock_config, mock_agent_runner):
+  """진행 상태에 따른 실시간 메시지 수정 및 typing 액션 전송 흐름을 통합 테스트합니다."""
+  mock_chat_history_manager = AsyncMock(spec=ChatHistoryManager)
+  bot = TelegramBot(
+      config=mock_config,
+      agent_runner=mock_agent_runner,
+      chat_history_manager=mock_chat_history_manager,
+  )
+
+  # getUpdates 모킹
+  updates_response = {
+      "ok": True,
+      "result": [
+          {
+              "update_id": 400,
+              "message": {
+                  "message_id": 1,
+                  "chat": {"id": 12345, "type": "private"},
+                  "text": "내 자산 얼마야?",
+              },
+          }
+      ],
+  }
+  respx.get("https://api.telegram.org/botmock_bot_token/getUpdates").mock(
+      return_value=Response(200, json=updates_response)
+  )
+
+  # sendMessage 모킹 (성공 시 message_id를 포함한 결과 반환)
+  send_message_route = respx.post(
+      "https://api.telegram.org/botmock_bot_token/sendMessage"
+  ).mock(return_value=Response(200, json={"ok": True, "result": {"message_id": 777}}))
+
+  # editMessageText 모킹
+  edit_message_route = respx.post(
+      "https://api.telegram.org/botmock_bot_token/editMessageText"
+  ).mock(return_value=Response(200, json={"ok": True}))
+
+  # sendChatAction 모킹
+  chat_action_route = respx.post(
+      "https://api.telegram.org/botmock_bot_token/sendChatAction"
+  ).mock(return_value=Response(200, json={"ok": True}))
+
+  # AgentRunner.ask가 호출될 때 콜백을 트리거하도록 정의
+  async def fake_ask(prompt, on_status_update=None):
+    if on_status_update:
+      await on_status_update("ASSET_INQUIRY")
+    return "최종 자산 분석 결과입니다."
+  mock_agent_runner.ask = fake_ask
+
+  next_offset = await bot.poll_once(offset=None)
+
+  assert next_offset == 401
+
+  # 1. 초기 임시 메시지 전송 확인
+  assert send_message_route.called
+  req_send_body = send_message_route.calls.last.request.read().decode("utf-8")
+  assert "🔄 [1/3] 요청 분석 중..." in req_send_body
+
+  # 2. sendChatAction이 최소 두 번 호출되었는지 확인 (초기 및 상태 업데이트 시)
+  assert chat_action_route.call_count >= 2
+  req_action_body = chat_action_route.calls[0].request.read().decode("utf-8")
+  assert '"action":"typing"' in req_action_body
+
+  # 3. editMessageText가 두 번 호출되었는지 확인
+  assert edit_message_route.call_count == 2
+  
+  # 3.1 1차 수정 (ASSET_INQUIRY 콜백에 의한 수정)
+  req_edit1_body = edit_message_route.calls[0].request.read().decode("utf-8")
+  assert '"message_id":777' in req_edit1_body
+  assert "🔄 [2/3] 자산 데이터 조회 및 AI 분석 중..." in req_edit1_body
+
+  # 3.2 2차 수정 (최종 답변에 의한 수정)
+  req_edit2_body = edit_message_route.calls[1].request.read().decode("utf-8")
+  assert '"message_id":777' in req_edit2_body
+  assert "최종 자산 분석 결과입니다." in req_edit2_body
+
 

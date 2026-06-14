@@ -31,7 +31,7 @@ async def test_agent_runner_ask_asset_inquiry(mocker):
   mock_router_agent.__aenter__ = AsyncMock(return_value=mock_router_agent)
   mock_router_agent.__aexit__ = AsyncMock(return_value=None)
   mock_router_response = MagicMock()
-  mock_router_response.text = AsyncMock(return_value='{"task_type": "ASSET_INQUIRY"}')
+  mock_router_response.structured_output = AsyncMock(return_value={"task_type": "ASSET_INQUIRY"})
   mock_router_agent.chat = AsyncMock(return_value=mock_router_response)
 
   # 2차 자산조회 실제 에이전트 모킹
@@ -81,7 +81,7 @@ async def test_agent_runner_ask_general_conversation(mocker):
   mock_router_agent.__aenter__ = AsyncMock(return_value=mock_router_agent)
   mock_router_agent.__aexit__ = AsyncMock(return_value=None)
   mock_router_response = MagicMock()
-  mock_router_response.text = AsyncMock(return_value='{"task_type": "GENERAL_CONVERSATION"}')
+  mock_router_response.structured_output = AsyncMock(return_value={"task_type": "GENERAL_CONVERSATION"})
   mock_router_agent.chat = AsyncMock(return_value=mock_router_response)
 
   mock_actual_agent = MagicMock()
@@ -159,7 +159,7 @@ async def test_agent_runner_exception(mocker):
   mock_router_agent.__aenter__ = AsyncMock(return_value=mock_router_agent)
   mock_router_agent.__aexit__ = AsyncMock(return_value=None)
   mock_router_response = MagicMock()
-  mock_router_response.text = AsyncMock(return_value='{"task_type": "GENERAL_CONVERSATION"}')
+  mock_router_response.structured_output = AsyncMock(return_value={"task_type": "GENERAL_CONVERSATION"})
   mock_router_agent.chat = AsyncMock(return_value=mock_router_response)
 
   # 2차 에러 발생
@@ -193,7 +193,7 @@ async def test_agent_runner_asset_client_error(mocker):
   mock_router_agent.__aenter__ = AsyncMock(return_value=mock_router_agent)
   mock_router_agent.__aexit__ = AsyncMock(return_value=None)
   mock_router_response = MagicMock()
-  mock_router_response.text = AsyncMock(return_value='{"task_type": "ASSET_INQUIRY"}')
+  mock_router_response.structured_output = AsyncMock(return_value={"task_type": "ASSET_INQUIRY"})
   mock_router_agent.chat = AsyncMock(return_value=mock_router_response)
 
   # 2차 자산 API 클라이언트 에러
@@ -209,3 +209,82 @@ async def test_agent_runner_asset_client_error(mocker):
   response_text = await runner.ask("내 자산 어때?")
 
   assert response_text == "⚠️ API 서버에 연결할 수 없습니다."
+
+
+@pytest.mark.asyncio
+async def test_agent_runner_ask_with_status_callback(mocker):
+  """ask 호출 시 status 콜백이 올바른 매개변수로 호출되는지 테스트합니다."""
+  mock_config = MagicMock()
+  mock_config.model_router = "gemini-2.5-flash"
+  mock_config.model_general_conversation = "gemini-2.5-flash"
+  mock_config.model_asset_inquiry = "gemini-1.5-flash"
+
+  # 1차 라우터에서 ASSET_INQUIRY 반환
+  mock_router_agent = MagicMock()
+  mock_router_agent.__aenter__ = AsyncMock(return_value=mock_router_agent)
+  mock_router_agent.__aexit__ = AsyncMock(return_value=None)
+  mock_router_response = MagicMock()
+  mock_router_response.structured_output = AsyncMock(return_value={"task_type": "ASSET_INQUIRY"})
+  mock_router_agent.chat = AsyncMock(return_value=mock_router_response)
+
+  # 2차 실제 에이전트 반환
+  mock_actual_agent = MagicMock()
+  mock_actual_agent.__aenter__ = AsyncMock(return_value=mock_actual_agent)
+  mock_actual_agent.__aexit__ = AsyncMock(return_value=None)
+  mock_actual_response = MagicMock()
+  mock_actual_response.text = AsyncMock(return_value="자산 조회 완료")
+  mock_actual_agent.chat = AsyncMock(return_value=mock_actual_response)
+
+  mocker.patch("asset_jun_bot.agent_runner.Agent", side_effect=[mock_router_agent, mock_actual_agent])
+  mocker.patch("asset_jun_bot.agent_runner.LocalAgentConfig")
+
+  runner = AgentRunner(config=mock_config)
+
+  callback_calls = []
+  async def mock_callback(status):
+    callback_calls.append(status)
+
+  response_text = await runner.ask("내 자산 어때?", on_status_update=mock_callback)
+
+  assert response_text == "자산 조회 완료"
+  assert callback_calls == ["ASSET_INQUIRY"]
+
+
+@pytest.mark.asyncio
+async def test_agent_runner_router_policies_include_finish(mocker):
+  """의도 분류 라우터가 finish 도구 호출을 정책상 허용하고 있는지 확인합니다."""
+  mock_config = MagicMock()
+  mock_config.model_router = "gemini-2.5-flash"
+  mock_config.model_general_conversation = "gemini-2.5-flash"
+  mock_config.model_asset_inquiry = "gemini-1.5-flash"
+
+  # 라우터 에이전트 모킹
+  mock_router_agent = MagicMock()
+  mock_router_agent.__aenter__ = AsyncMock(return_value=mock_router_agent)
+  mock_router_agent.__aexit__ = AsyncMock(return_value=None)
+  mock_router_response = MagicMock()
+  mock_router_response.structured_output = AsyncMock(return_value={"task_type": "ASSET_INQUIRY"})
+  mock_router_agent.chat = AsyncMock(return_value=mock_router_response)
+
+  # 실제 에이전트 모킹
+  mock_actual_agent = MagicMock()
+  mock_actual_agent.__aenter__ = AsyncMock(return_value=mock_actual_agent)
+  mock_actual_agent.__aexit__ = AsyncMock(return_value=None)
+  mock_actual_response = MagicMock()
+  mock_actual_response.text = AsyncMock(return_value="자산 조회 완료")
+  mock_actual_agent.chat = AsyncMock(return_value=mock_actual_response)
+
+  mocker.patch("asset_jun_bot.agent_runner.Agent", side_effect=[mock_router_agent, mock_actual_agent])
+  mock_local_config = mocker.patch("asset_jun_bot.agent_runner.LocalAgentConfig")
+
+  runner = AgentRunner(config=mock_config)
+  await runner.ask("내 관심종목 알려줘")
+
+  # 첫 번째 LocalAgentConfig 호출의 인자 가져오기
+  router_call_kwargs = mock_local_config.call_args_list[0].kwargs
+  policies = router_call_kwargs.get("policies", [])
+
+  # 정책의 길이가 2여야 합니다 (policy.deny_all() 및 policy.allow("finish"))
+  assert len(policies) == 2
+
+

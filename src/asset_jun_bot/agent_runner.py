@@ -2,7 +2,7 @@
 """Antigravity SDK를 사용하여 AI 에이전트와 대화하는 모듈입니다."""
 
 import logging
-from typing import Literal
+from typing import Literal, Callable, Coroutine, Any
 from pydantic import BaseModel, Field
 from google.antigravity import Agent, LocalAgentConfig
 from google.antigravity.hooks import policy
@@ -56,6 +56,7 @@ class AgentRunner:
         "2. 자산군별 백분율 비중(현금, 주식 등) 요청: get_asset_ratios 도구 사용\n"
         "3. 관심종목 시세 및 실시간 주가 요청 (예: '국내 관심종목 가격 어때?', '미국 종목 보여줘'): get_watchlist_prices 도구 사용 (국가 구분에 따라 country='KR' 또는 country='US' 인자 전달)\n"
         "각 도구(Tool)는 가공되지 않은 자산 데이터를 객체 형태로 반환합니다. 이 데이터를 바탕으로 사용자에게 친절하게 한국어 자연어와 가독성 있는 마크다운 서식을 활용해 브리핑해 주십시오.\n"
+        "⚠️ 중요: 당신에게는 로컬 파일 시스템이나 디렉터리를 직접 조회(list_directory, view_file 등)할 권한이 전혀 없으며, 이러한 시도는 보안 정책상 항상 차단됩니다. 따라서 절대로 파일 시스템 관련 도구 호출을 시도하지 마시고, 오직 위의 세 비즈니스 도구(get_asset_summary, get_asset_ratios, get_watchlist_prices)만을 활용해 질문에 대답하십시오. 관심종목 조회가 필요할 시에는 즉시 get_watchlist_prices 도구를 사용하십시오.\n"
         "⚠️ 중요: 텔레그램 메신저는 마크다운 표(Table, |---| 구문)를 지원하지 않아 깨져서 보입니다. 따라서 정보를 출력할 때 절대로 표(Table) 구문을 사용하지 말고, 대신 이모지(Emoji), 줄 바꿈, 그리고 강조(굵은 글씨)가 들어간 리스트(bullet points) 서식을 사용하여 모바일 화면에서도 깨짐 없이 한눈에 들어오도록 구성하십시오.\n"
         "비정상적인 투자 리밸런싱 조언이나 과도한 미래 주가 예측은 피하십시오."
     )
@@ -91,33 +92,49 @@ class AgentRunner:
         system_instructions=self.router_instructions,
         response_schema=TaskRouting,
         tools=[],
-        policies=[policy.deny_all()],
+        policies=[policy.deny_all(), policy.allow("finish")],
     )
 
     try:
       async with Agent(router_config) as agent:
         response = await agent.chat(prompt)
-        text = await response.text()
         
-        # Pydantic을 활용해 JSON 파싱 수행
-        routing_result = TaskRouting.model_validate_json(text)
-        logger.info(f"의도 분류 결과: {routing_result.task_type} (입력: {prompt})")
-        return routing_result.task_type
+        structured_data = await response.structured_output()
+        if structured_data is None:
+          logger.warning("의도 분류 결과가 빈 값입니다. GENERAL_CONVERSATION으로 폴백합니다.")
+          return "GENERAL_CONVERSATION"
+
+        if isinstance(structured_data, dict):
+          task_type = structured_data.get("task_type", "GENERAL_CONVERSATION")
+        else:
+          task_type = getattr(structured_data, "task_type", "GENERAL_CONVERSATION")
+
+        logger.info(f"의도 분류 결과: {task_type} (입력: {prompt})")
+        return task_type
     except Exception as exc:
       logger.warning(f"의도 분류(Routing) 중 예외 발생, GENERAL_CONVERSATION으로 폴백합니다. 에러: {exc}")
       return "GENERAL_CONVERSATION"
 
-  async def ask(self, prompt: str) -> str:
+  async def ask(
+      self,
+      prompt: str,
+      on_status_update: Callable[[str], Coroutine[Any, Any, None]] | None = None,
+  ) -> str:
     """사용자의 프롬프트를 분석하여 작업 유형에 맞게 모델과 도구를 동적으로 선택해 실행합니다.
 
     Args:
         prompt: 사용자 질문
+        on_status_update: 상태 변화 발생 시 호출할 비동기 콜백 함수
 
     Returns:
         에이전트의 답변 텍스트 (에러 발생 시 에러 요약 메시지)
     """
     # 1. 의도 분류 실행
     task_type = await self._route_intent(prompt)
+
+    # 2. 의도 분류 후 상태 업데이트 콜백 호출
+    if on_status_update:
+      await on_status_update(task_type)
 
     # 2. 작업에 따른 설정 동적 구성
     if task_type == "ASSET_INQUIRY":
