@@ -22,12 +22,10 @@ def mock_config(monkeypatch):
 @respx.mock
 async def test_get_asset_summary_success():
   """API 호출 성공 시 올바른 텍스트를 반환하는지 테스트합니다."""
-  # Mock API response
+  # Mock API response (실제 API 규격)
   mock_data = {
-      "total_asset": 120000000,
-      "total_debt": 20000000,
-      "net_worth": 100000000,
-      "roi": 12.5,
+      "total_valuation_krw": 120000000.0,
+      "cumulative_roi": 12.5,
   }
   respx.get("http://mock-asset-server/api/dashboard/summary").mock(
       return_value=Response(200, json=mock_data)
@@ -37,7 +35,7 @@ async def test_get_asset_summary_success():
   assert "총 자산" in result
   assert "120,000,000" in result
   assert "순자산" in result
-  assert "100,000,000" in result
+  assert "120,000,000" in result  # 부채가 0이므로 순자산도 120,000,000이 될 것입니다.
   assert "수익률" in result
   assert "12.50%" in result
 

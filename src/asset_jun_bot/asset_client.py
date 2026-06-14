@@ -26,17 +26,17 @@ async def get_asset_summary() -> str:
       response.raise_for_status()
       data = response.json()
 
-      total_asset = data.get("total_asset", 0)
-      total_debt = data.get("total_debt", 0)
-      net_worth = data.get("net_worth", 0)
-      roi = data.get("roi", 0.0)
+      total_asset = data.get("total_valuation_krw", 0)
+      total_debt = 0  # 백엔드 API에서 부채 정보를 제공하지 않으므로 0으로 설정
+      net_worth = total_asset - total_debt
+      roi = data.get("cumulative_roi", 0.0)
 
       # 보기 좋은 마크다운 텍스트 포맷팅
       summary = (
           "📊 **자산 요약 정보**\n"
-          f"- 총 자산: {total_asset:,}원\n"
-          f"- 총 부채: {total_debt:,}원\n"
-          f"- 순자산: {net_worth:,}원\n"
+          f"- 총 자산: {int(total_asset):,}원\n"
+          f"- 총 부채: {int(total_debt):,}원\n"
+          f"- 순자산: {int(net_worth):,}원\n"
           f"- 투자수익률 (ROI): {roi:.2f}%"
       )
       return summary
