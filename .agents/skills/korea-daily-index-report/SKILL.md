@@ -11,6 +11,8 @@ description: Generate, save, and convert the daily KOSPI/KOSDAQ index status rep
 
 이 스킬이 로드되면 에이전트는 별도의 조작 없이 아래의 **Workflows** 절차에 명시된 도구들을 순서대로 사용하여 보고서 작성 및 변환을 완료해야 합니다.
 
+⚠️ **계획 모드(Planning Mode) 및 승인 생략**: 이 스킬을 가동할 때는 구현 계획서(Implementation Plan, `implementation_plan.md`) 작성 및 사용자의 명시적인 승인(Approval) 단계를 **생략**하고, 바로 워크플로우를 즉시 자동 실행합니다.
+
 ## Workflows
 
 에이전트는 아래 체크리스트와 가이드에 따라 필요한 도구를 직접 호출하여 작업을 수행합니다.
@@ -23,13 +25,19 @@ description: Generate, save, and convert the daily KOSPI/KOSDAQ index status rep
 - [ ] **지수 데이터 조회 선택**:
   - `IS_HOLIDAY`가 `False`인 경우(정상 영업일): 쉘 명령어 실행 도구(`run_command` 등)를 통해 `uv run python scripts/query_market.py --action indices` 명령을 실행하여 오늘 마감된 KOSPI 및 KOSDAQ 지수와 전일비 등락률 데이터를 획득합니다.
   - `IS_HOLIDAY`가 `True`인 경우(휴장일/주말): 지수 조회 명령을 **생략**합니다.
-- [ ] **시장 뉴스 웹 검색**: 평일, 휴장일 여부와 무관하게 기본 웹 검색 도구(`search_web` 등)를 사용하여 오늘 KOSPI 및 KOSDAQ 시장에 영향을 준 주요 경제 뉴스 3~5개를 조사합니다.
+- [ ] **시장 뉴스 웹 검색 규칙**: 평일, 휴장일 여부와 무관하게 기본 웹 검색 도구(`search_web` 등)를 사용하여 경제 뉴스를 조사합니다. 검색 일관성과 퀄리티 유지를 위해 아래의 규칙을 반드시 준수합니다:
+  - **1차 필수 검색 템플릿**: 다음 2개의 템플릿을 사용하여 각각 1회씩(총 2회) 검색을 우선 실행합니다. (여기서 YYYY년 MM월 DD일은 오늘 날짜 기준)
+    1. `"[YYYY년 MM월 DD일] 국내 주식 시장 마감 시황 요약"`
+    2. `"[YYYY년 MM월 DD일] 한국 경제 주요 뉴스"`
+  - **검색 횟수 제한**:
+    - **최소 검색 횟수**: **2회** (위의 두 템플릿을 각각 1회씩 반드시 수행)
+    - **최대 검색 횟수**: **4회** (1차 검색 결과 분석 후 추가 탐색이나 교차 검증이 필요하더라도 전체 검색 횟수는 총 4회를 초과할 수 없음)
 - [ ] **뉴스 링크 확보**: 조사한 각 뉴스 기사는 제목 옆에 반드시 해당 기사의 **URL 출처 링크**([뉴스 제목](URL))를 기재해야 합니다.
   - ⚠️ 중요: 구글 검색 결과로 얻은 `vertexaisearch.cloud.google.com/grounding-api-redirect/...` 주소는 그대로 사용하면 언론사 홈 화면으로 이동하거나 깨지는 문제가 있습니다. 
   - 에이전트는 **쉘 명령어 실행 도구(`run_command` 등)**를 통해 전용 CLI 스크립트(`uv run python scripts/resolve_url.py "[대상 URL]"`)를 실행하여 얻은 **최종 상세 뉴스 기사 URL**로 복원하여 기재해야 합니다.
 
 ### 2단계: 마크다운 파일 생성 및 저장
-- [ ] **저장 경로 확인**: 저장할 디렉터리 경로를 획득하기 위해 쉘 명령어 실행 도구(`run_command` 등)를 통해 `echo $env:STORAGE_DIR` 명령을 실행하여 환경 변수 값을 확인합니다.
+- [ ] **저장 경로 확인**: 저장할 디렉터리 경로를 획득하기 위해 쉘 명령어 실행 도구(`run_command` 등)를 통해 `uv run python scripts/get_storage_dir.py` 명령을 실행하여 환경 변수 값을 확인합니다.
 - [ ] **마크다운 파일 생성 및 저장**: 파일 쓰기 도구(`write_to_file` 등)를 호출하여 `STORAGE_DIR/reports/korea_market/Korea_market_daily_report_YYYYMMDD.md` (YYYYMMDD는 오늘 날짜) 경로에 아래 템플릿 규격에 맞춘 새로운 마크다운 파일을 직접 생성하여 저장합니다.
   - **보고서 템플릿**:
     - **평일 (is_holiday=false)인 경우**:
