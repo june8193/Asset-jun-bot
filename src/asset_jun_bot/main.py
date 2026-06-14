@@ -8,6 +8,7 @@ import sys
 from asset_jun_bot.config import Config
 from asset_jun_bot.agent_runner import AgentRunner
 from asset_jun_bot.telegram_bot import TelegramBot
+from asset_jun_bot.logging_config import setup_logging
 
 # 로깅 설정
 logging.basicConfig(
@@ -27,7 +28,10 @@ async def async_main():
   try:
     # 1. 설정 로드
     config = Config.load()
+    # 파일 로깅 활성화
+    setup_logging(config.storage_dir)
     logger.info("설정이 성공적으로 로드되었습니다.")
+    logger.info(f"Storage Directory: {config.storage_dir}")
     logger.info(f"AssetManager API URL: {config.asset_manager_api_url}")
     logger.info(f"허가된 사용자 ID 목록: {config.telegram_allowed_user_ids}")
   except ValueError as err:

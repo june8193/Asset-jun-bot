@@ -15,6 +15,7 @@ def mock_config(monkeypatch):
   monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "12345")
   monkeypatch.setenv("GEMINI_API_KEY", "mock_gemini_key")
   monkeypatch.setenv("ASSET_MANAGER_API_URL", "http://mock-asset-server")
+  monkeypatch.setenv("STORAGE_DIR", "mock_storage_dir")
 
 
 @pytest.mark.asyncio

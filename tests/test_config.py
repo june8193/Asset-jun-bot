@@ -17,6 +17,7 @@ def test_config_missing_telegram_token(monkeypatch):
   monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
   monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "12345,67890")
   monkeypatch.setenv("GEMINI_API_KEY", "mock_gemini_key")
+  monkeypatch.setenv("STORAGE_DIR", "mock_storage_dir")
 
   with pytest.raises(ValueError) as excinfo:
     Config.load()
@@ -28,6 +29,7 @@ def test_config_missing_allowed_user_ids(monkeypatch):
   monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "mock_token")
   monkeypatch.delenv("TELEGRAM_ALLOWED_USER_IDS", raising=False)
   monkeypatch.setenv("GEMINI_API_KEY", "mock_gemini_key")
+  monkeypatch.setenv("STORAGE_DIR", "mock_storage_dir")
 
   with pytest.raises(ValueError) as excinfo:
     Config.load()
@@ -39,6 +41,7 @@ def test_config_invalid_allowed_user_ids(monkeypatch):
   monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "mock_token")
   monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "12345,abc")
   monkeypatch.setenv("GEMINI_API_KEY", "mock_gemini_key")
+  monkeypatch.setenv("STORAGE_DIR", "mock_storage_dir")
 
   with pytest.raises(ValueError) as excinfo:
     Config.load()
@@ -49,6 +52,7 @@ def test_config_missing_gemini_api_key(monkeypatch):
   """GEMINI_API_KEY가 없을 때 ValueError를 발생하는지 테스트합니다."""
   monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "mock_token")
   monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "12345")
+  monkeypatch.setenv("STORAGE_DIR", "mock_storage_dir")
   monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
   with pytest.raises(ValueError) as excinfo:
@@ -61,12 +65,14 @@ def test_config_valid_parsing(monkeypatch):
   monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "mock_token")
   monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "12345,67890")
   monkeypatch.setenv("GEMINI_API_KEY", "mock_gemini_key")
+  monkeypatch.setenv("STORAGE_DIR", "mock_storage_dir")
   monkeypatch.delenv("ASSET_MANAGER_API_URL", raising=False)
 
   config = Config.load()
   assert config.telegram_bot_token == "mock_token"
   assert config.telegram_allowed_user_ids == {12345, 67890}
   assert config.gemini_api_key == "mock_gemini_key"
+  assert config.storage_dir == "mock_storage_dir"
   # 기본값 확인
   assert config.asset_manager_api_url == "http://localhost:8000"
 
@@ -76,7 +82,20 @@ def test_config_custom_asset_url(monkeypatch):
   monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "mock_token")
   monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "12345")
   monkeypatch.setenv("GEMINI_API_KEY", "mock_gemini_key")
+  monkeypatch.setenv("STORAGE_DIR", "mock_storage_dir")
   monkeypatch.setenv("ASSET_MANAGER_API_URL", "http://my-asset-server:9000")
 
   config = Config.load()
   assert config.asset_manager_api_url == "http://my-asset-server:9000"
+
+
+def test_config_missing_storage_dir(monkeypatch):
+  """STORAGE_DIR이 없을 때 ValueError를 발생하는지 테스트합니다."""
+  monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "mock_token")
+  monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "12345")
+  monkeypatch.setenv("GEMINI_API_KEY", "mock_gemini_key")
+  monkeypatch.delenv("STORAGE_DIR", raising=False)
+
+  with pytest.raises(ValueError) as excinfo:
+    Config.load()
+  assert "STORAGE_DIR" in str(excinfo.value)
