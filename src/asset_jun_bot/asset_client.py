@@ -430,4 +430,30 @@ async def send_telegram_message(message: str, chat_id: int | None = None) -> str
   return f"Telegram message sent successfully to {', '.join(success_targets)}."
 
 
+async def resolve_redirect_url(url: str) -> str:
+  """단축 URL 또는 리다이렉트 URL을 추적하여 최종 도달하는 원본 상세 URL을 반환합니다.
+
+  Args:
+      url: 리다이렉션을 추적할 대상 URL
+
+  Returns:
+      str: 최종 도달한 원본 URL (에러 발생 시 입력받은 url을 그대로 반환)
+  """
+  headers = {
+      "User-Agent": (
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+          "AppleWebKit/537.36 (KHTML, like Gecko) "
+          "Chrome/120.0.0.0 Safari/537.36"
+      )
+  }
+  try:
+    async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
+      response = await client.get(url, headers=headers)
+      return str(response.url)
+  except Exception:
+    # 네트워크 에러 또는 타임아웃 발생 시 입력된 원본 URL을 폴백으로 반환합니다.
+    return url
+
+
+
 

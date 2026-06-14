@@ -12,6 +12,7 @@ from asset_jun_bot.asset_client import (
     get_market_indices,
     check_market_holiday,
     send_telegram_message,
+    resolve_redirect_url,
     AssetSummaryResponse,
     AssetRatiosResponse,
     WatchlistPricesResponse,
@@ -341,6 +342,38 @@ async def test_send_telegram_message_http_error():
   with pytest.raises(AssetClientError) as exc_info:
     await send_telegram_message("테스트 메시지", chat_id=12345)
   assert "HTTP" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_resolve_redirect_url_success():
+  """리다이렉트 URL 추적에 성공하여 최종 URL을 잘 반환하는지 테스트합니다."""
+  mock_redirect_url = "http://mock-asset-server/redirect"
+  mock_final_url = "https://www.yna.co.kr/view/AKR12345"
+  
+  respx.get(mock_redirect_url).mock(
+      return_value=Response(302, headers={"Location": mock_final_url})
+  )
+  respx.get(mock_final_url).mock(
+      return_value=Response(200)
+  )
+
+  result = await resolve_redirect_url(mock_redirect_url)
+  assert result == mock_final_url
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_resolve_redirect_url_failure():
+  """리다이렉트 추적 중 네트워크 에러 등이 발생 시 원본 URL을 반환하는지 테스트합니다."""
+  mock_redirect_url = "http://mock-redirect-fail"
+  respx.get(mock_redirect_url).mock(
+      side_effect=RequestError("Connection refused")
+  )
+
+  result = await resolve_redirect_url(mock_redirect_url)
+  assert result == mock_redirect_url
+
 
 
 
