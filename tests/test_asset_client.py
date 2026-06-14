@@ -3,9 +3,17 @@
 
 import pytest
 import respx
-from httpx import Response, HTTPStatusError, RequestError
+from httpx import Response, RequestError
 from asset_jun_bot.config import Config
-from asset_jun_bot.asset_client import get_asset_summary
+from asset_jun_bot.asset_client import (
+    get_asset_summary,
+    get_asset_ratios,
+    get_watchlist_prices,
+    AssetSummaryResponse,
+    AssetRatiosResponse,
+    WatchlistPricesResponse,
+    AssetClientError,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -16,62 +24,69 @@ def mock_config(monkeypatch):
   monkeypatch.setenv("GEMINI_API_KEY", "mock_gemini_key")
   monkeypatch.setenv("ASSET_MANAGER_API_URL", "http://mock-asset-server")
   monkeypatch.setenv("STORAGE_DIR", "mock_storage_dir")
+  monkeypatch.setenv("MODEL_ROUTER", "gemini-2.5-flash")
+  monkeypatch.setenv("MODEL_GENERAL_CONVERSATION", "gemini-2.5-flash")
+  monkeypatch.setenv("MODEL_ASSET_INQUIRY", "gemini-1.5-flash")
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_get_asset_summary_success():
-  """API 호출 성공 시 올바른 텍스트를 반환하는지 테스트합니다."""
-  # Mock API response (실제 API 규격)
+  """API 호출 성공 시 올바른 Pydantic 응답 모델을 반환하는지 테스트합니다."""
+  # Mock API response (자산 서버의 dashboard summary 실제 규격 반영)
   mock_data = {
       "total_valuation_krw": 120000000.0,
-      "cumulative_roi": 12.5,
+      "total_contribution": 80000000.0,
+      "initial_base_asset": 20000000.0,
+      "total_profit": 20000000.0,
+      "cumulative_roi": 20.0,
+      "contribution_ratio": 83.33,
+      "profit_ratio": 16.67
   }
   respx.get("http://mock-asset-server/api/dashboard/summary").mock(
       return_value=Response(200, json=mock_data)
   )
 
   result = await get_asset_summary()
-  assert "총 자산" in result
-  assert "120,000,000" in result
-  assert "순자산" in result
-  assert "120,000,000" in result  # 부채가 0이므로 순자산도 120,000,000이 될 것입니다.
-  assert "수익률" in result
-  assert "12.50%" in result
+  assert isinstance(result, AssetSummaryResponse)
+  assert result.total_valuation_krw == 120000000.0
+  assert result.total_principal == 100000000.0  # initial_base_asset (20M) + total_contribution (80M)
+  assert result.total_profit == 20000000.0
+  assert result.cumulative_roi == 20.0
+  assert result.contribution_ratio == 83.33
+  assert result.profit_ratio == 16.67
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_get_asset_summary_http_error():
-  """API 호출 시 HTTP 에러가 발생했을 때 에러 메시지를 반환하는지 테스트합니다."""
+  """API 호출 시 HTTP 에러가 발생했을 때 AssetClientError 예외를 발생시키는지 테스트합니다."""
   respx.get("http://mock-asset-server/api/dashboard/summary").mock(
       return_value=Response(500)
   )
 
-  result = await get_asset_summary()
-  assert "오류" in result
-  assert "500" in result
+  with pytest.raises(AssetClientError) as exc_info:
+    await get_asset_summary()
+  assert "HTTP 오류" in str(exc_info.value)
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_get_asset_summary_network_error():
-  """API 서버가 다운되었거나 네트워크 오류 발생 시 에러 메시지를 반환하는지 테스트합니다."""
-  # RequestError 발생 상황 모킹
+  """API 서버 연결 실패 시 AssetClientError 예외를 발생시키는지 테스트합니다."""
   respx.get("http://mock-asset-server/api/dashboard/summary").mock(
       side_effect=RequestError("Connection refused")
   )
 
-  result = await get_asset_summary()
-  assert "네트워크 오류" in result or "연결" in result
+  with pytest.raises(AssetClientError) as exc_info:
+    await get_asset_summary()
+  assert "네트워크 오류" in str(exc_info.value) or "연결" in str(exc_info.value)
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_get_asset_ratios_success():
-  """자산 비중 조회 API가 성공할 때 올바르게 포맷팅된 문자열을 반환하는지 테스트합니다."""
-  from asset_jun_bot.asset_client import get_asset_ratios
-
+  """자산 비중 조회 API가 성공할 때 올바른 Pydantic 응답 모델을 반환하는지 테스트합니다."""
   mock_data = {
       "total_valuation": 100000000.0,
       "total_target": 100000000.0,
@@ -101,35 +116,32 @@ async def test_get_asset_ratios_success():
   )
 
   result = await get_asset_ratios()
-  assert "자산군별 비중" in result
-  assert "현금" in result
-  assert "40.00%" in result
-  assert "40,000,000" in result
-  assert "주식" in result
-  assert "60.00%" in result
-  assert "60,000,000" in result
+  assert isinstance(result, AssetRatiosResponse)
+  assert len(result.major_results) == 2
+  assert result.major_results[0].category == "현금"
+  assert result.major_results[0].current_ratio == 40.0
+  assert result.major_results[0].current_amt == 40000000.0
+  assert result.major_results[1].category == "주식"
+  assert result.major_results[1].current_ratio == 60.0
+  assert result.major_results[1].current_amt == 60000000.0
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_get_asset_ratios_http_error():
-  """자산 비중 조회 API 호출 실패 시 에러 메시지를 반환하는지 테스트합니다."""
-  from asset_jun_bot.asset_client import get_asset_ratios
-
+  """자산 비중 조회 API 호출 실패 시 AssetClientError 예외를 발생시키는지 테스트합니다."""
   respx.get("http://mock-asset-server/api/ratios/rebalancing").mock(
       return_value=Response(500)
   )
 
-  result = await get_asset_ratios()
-  assert "오류" in result or "실패" in result
+  with pytest.raises(AssetClientError):
+    await get_asset_ratios()
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_get_watchlist_prices_success():
-  """관심종목 가격 조회 API가 성공할 때 올바르게 포맷팅된 문자열을 반환하는지 테스트합니다."""
-  from asset_jun_bot.asset_client import get_watchlist_prices
-
+  """관심종목 가격 조회 API가 성공할 때 올바른 Pydantic 응답 모델을 반환하는지 테스트합니다."""
   mock_data = [
       {
           "stock_code": "005930",
@@ -149,25 +161,26 @@ async def test_get_watchlist_prices_success():
   )
 
   result = await get_watchlist_prices(country="KR")
-  assert "관심종목 시세" in result
-  assert "삼성전자" in result
-  assert "75,000" in result
-  assert "+1.25%" in result
-  assert "SK하이닉스" in result
-  assert "142,000" in result
-  assert "-0.52%" in result
+  assert isinstance(result, WatchlistPricesResponse)
+  assert result.country == "KR"
+  assert len(result.prices) == 2
+  assert result.prices[0].stock_name == "삼성전자"
+  assert result.prices[0].stock_code == "005930"
+  assert result.prices[0].current_price == 75000.0
+  assert result.prices[0].change_rate == 1.25
+  assert result.prices[1].stock_name == "SK하이닉스"
+  assert result.prices[1].stock_code == "000660"
+  assert result.prices[1].current_price == 142000.0
+  assert result.prices[1].change_rate == -0.52
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_get_watchlist_prices_http_error():
-  """관심종목 가격 조회 API 호출 실패 시 에러 메시지를 반환하는지 테스트합니다."""
-  from asset_jun_bot.asset_client import get_watchlist_prices
-
+  """관심종목 가격 조회 API 호출 실패 시 AssetClientError 예외를 발생시키는지 테스트합니다."""
   respx.get("http://mock-asset-server/api/watchlist/prices?country=KR").mock(
       return_value=Response(500)
   )
 
-  result = await get_watchlist_prices(country="KR")
-  assert "오류" in result or "실패" in result
-
+  with pytest.raises(AssetClientError):
+    await get_watchlist_prices(country="KR")

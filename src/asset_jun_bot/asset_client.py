@@ -1,22 +1,101 @@
 # -*- coding: utf-8 -*-
-"""AssetManager API와 통신하여 자산 정보를 가져오는 클라이언트 모듈입니다."""
+"""AssetManager API와 통신하여 자산 정보를 가져오는 클라이언트 모듈입니다.
 
+이 모듈은 API 호출 결과를 마크다운 스트링이 아닌 Pydantic 모델 형태의 구조화된 데이터로
+반환하며, 통신 실패 시 명시적인 AssetClientError 예외를 발생시킵니다.
+"""
+
+from typing import List
 import httpx
+from pydantic import BaseModel, Field
 from .config import Config
 
 
-async def get_asset_summary() -> str:
-  """AssetManager API로부터 자산 요약 정보를 조회합니다.
+class AssetClientError(Exception):
+  """AssetManager API 클라이언트 에러를 나타내는 예외 클래스입니다."""
+  pass
 
-  이 함수는 에이전트의 도구(Tool)로 등록되므로 상세한 docstring이 작성되어야 합니다.
+
+class AssetSummaryResponse(BaseModel):
+  """자산 요약 정보 응답 Pydantic 모델입니다.
+
+  Attributes:
+      total_valuation_krw: 총 평가자산 (원화 환산)
+      total_principal: 총 투자 원금 (최초 기초 자산 + 누적 추가액)
+      total_profit: 누적 투자 수익
+      cumulative_roi: 누적 투자수익률 (%)
+      contribution_ratio: 투자원금 비율 (%)
+      profit_ratio: 투자수익 비율 (%)
+  """
+  total_valuation_krw: float = Field(..., description="총 평가자산 (KRW)")
+  total_principal: float = Field(..., description="총 투자 원금 (최초 기초 자산 + 누적 추가액)")
+  total_profit: float = Field(..., description="누적 투자 수익")
+  cumulative_roi: float = Field(..., description="누적 투자수익률 (%)")
+  contribution_ratio: float = Field(..., description="투자원금 비율 (%)")
+  profit_ratio: float = Field(..., description="투자수익 비율 (%)")
+
+
+class AssetRatioItem(BaseModel):
+  """자산 대분류별 세부 비중 정보 모델입니다.
+
+  Attributes:
+      category: 자산 대분류 명칭 (예: 주식, 현금 등)
+      current_amt: 현재 평가액
+      current_ratio: 현재 비중 (%)
+  """
+  category: str = Field(..., description="자산 대분류 명칭")
+  current_amt: float = Field(..., description="현재 평가액 (KRW)")
+  current_ratio: float = Field(..., description="현재 비중 (%)")
+
+
+class AssetRatiosResponse(BaseModel):
+  """자산군별 비중 현황 응답 Pydantic 모델입니다.
+
+  Attributes:
+      major_results: 자산 대분류별 비중 목록
+  """
+  major_results: List[AssetRatioItem] = Field(..., description="자산 대분류별 비중 목록")
+
+
+class WatchlistItemPrice(BaseModel):
+  """관심종목의 시세 정보 모델입니다.
+
+  Attributes:
+      stock_name: 종목명
+      stock_code: 종목코드
+      current_price: 현재가
+      change_rate: 전일 대비 등락률 (%)
+  """
+  stock_name: str = Field(..., description="종목명")
+  stock_code: str = Field(..., description="종목코드")
+  current_price: float = Field(..., description="현재가")
+  change_rate: float = Field(..., description="등락률 (%)")
+
+
+class WatchlistPricesResponse(BaseModel):
+  """관심종목 시세 현황 응답 Pydantic 모델입니다.
+
+  Attributes:
+      country: 국가 구분 (KR/US)
+      prices: 관심종목 시세 목록
+  """
+  country: str = Field(..., description="국가 구분 (KR/US)")
+  prices: List[WatchlistItemPrice] = Field(..., description="관심종목 목록")
+
+
+async def get_asset_summary() -> AssetSummaryResponse:
+  """AssetManager API로부터 자산 요약 정보를 조회하여 Pydantic 모델로 반환합니다.
 
   Returns:
-      자산 총액, 부채, 순자산, 수익률을 포함하는 한국어 요약 텍스트 또는 오류 메시지
+      AssetSummaryResponse: 자산 총액, 총 투자원금, 투자수익 등의 데이터를 담은 Pydantic 객체
+
+  Raises:
+      AssetClientError: 설정 로드 실패, HTTP 호출 실패 또는 네트워크 오류 발생 시
   """
   try:
     config = Config.load()
   except ValueError as err:
-    return f"설정 로드 중 오류 발생: {err}"
+    raise AssetClientError(f"설정 로드 중 오류 발생: {err}") from err
 
   url = f"{config.asset_manager_api_url}/api/dashboard/summary"
 
@@ -26,41 +105,49 @@ async def get_asset_summary() -> str:
       response.raise_for_status()
       data = response.json()
 
-      total_asset = data.get("total_valuation_krw", 0)
-      total_debt = 0  # 백엔드 API에서 부채 정보를 제공하지 않으므로 0으로 설정
-      net_worth = total_asset - total_debt
+      total_asset = data.get("total_valuation_krw", 0.0)
+      total_contribution = data.get("total_contribution", 0.0)
+      initial_base = data.get("initial_base_asset", 0.0)
+      total_principal = initial_base + total_contribution
+      total_profit = data.get("total_profit", 0.0)
       roi = data.get("cumulative_roi", 0.0)
+      contribution_ratio = data.get("contribution_ratio", 100.0)
+      profit_ratio = data.get("profit_ratio", 0.0)
 
-      # 보기 좋은 마크다운 텍스트 포맷팅
-      summary = (
-          "📊 **자산 요약 정보**\n"
-          f"- 총 자산: {int(total_asset):,}원\n"
-          f"- 총 부채: {int(total_debt):,}원\n"
-          f"- 순자산: {int(net_worth):,}원\n"
-          f"- 투자수익률 (ROI): {roi:.2f}%"
+      return AssetSummaryResponse(
+          total_valuation_krw=total_asset,
+          total_principal=total_principal,
+          total_profit=total_profit,
+          cumulative_roi=roi,
+          contribution_ratio=contribution_ratio,
+          profit_ratio=profit_ratio,
       )
-      return summary
 
   except httpx.HTTPStatusError as exc:
-    return f"AssetManager API 호출 실패 (HTTP 오류 코드: {exc.response.status_code})"
+    raise AssetClientError(
+        f"AssetManager API 호출 실패 (HTTP 오류 코드: {exc.response.status_code})"
+    ) from exc
   except httpx.RequestError as exc:
-    return f"AssetManager API 서버 연결 네트워크 오류: {exc}"
+    raise AssetClientError(
+        f"AssetManager API 서버 연결 네트워크 오류: {exc}"
+    ) from exc
   except Exception as exc:
-    return f"알 수 없는 오류 발생: {exc}"
+    raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
 
 
-async def get_asset_ratios() -> str:
-  """AssetManager API로부터 자산군별 백분율 비중 정보를 조회합니다.
-
-  이 함수는 에이전트의 도구(Tool)로 등록되므로 상세한 docstring이 작성되어야 합니다.
+async def get_asset_ratios() -> AssetRatiosResponse:
+  """AssetManager API로부터 자산군별 백분율 비중 정보를 조회하여 Pydantic 모델로 반환합니다.
 
   Returns:
-      자산군별 백분율 비중 현황을 포함하는 한국어 요약 텍스트 또는 오류 메시지
+      AssetRatiosResponse: 자산군별 백분율 비중 현황을 담은 Pydantic 객체
+
+  Raises:
+      AssetClientError: 설정 로드 실패, HTTP 호출 실패 또는 네트워크 오류 발생 시
   """
   try:
     config = Config.load()
   except ValueError as err:
-    return f"설정 로드 중 오류 발생: {err}"
+    raise AssetClientError(f"설정 로드 중 오류 발생: {err}") from err
 
   url = f"{config.asset_manager_api_url}/api/ratios/rebalancing"
 
@@ -71,41 +158,46 @@ async def get_asset_ratios() -> str:
       data = response.json()
 
       major_results = data.get("major_results", [])
-      if not major_results:
-        return "📊 **자산군별 비중 현황**\n등록된 자산 데이터가 없습니다."
-
-      lines = ["📊 **자산군별 비중 현황**"]
+      items = []
       for item in major_results:
-        category = item.get("category", "미분류")
-        current_amt = item.get("current_amt", 0.0)
-        current_ratio = item.get("current_ratio", 0.0)
-        lines.append(f"- {category}: {current_ratio:.2f}% ({current_amt:,.0f}원)")
+        items.append(
+            AssetRatioItem(
+                category=item.get("category", "미분류"),
+                current_amt=item.get("current_amt", 0.0),
+                current_ratio=item.get("current_ratio", 0.0),
+            )
+        )
 
-      return "\n".join(lines)
+      return AssetRatiosResponse(major_results=items)
 
   except httpx.HTTPStatusError as exc:
-    return f"AssetManager API 호출 실패 (HTTP 오류 코드: {exc.response.status_code})"
+    raise AssetClientError(
+        f"AssetManager API 호출 실패 (HTTP 오류 코드: {exc.response.status_code})"
+    ) from exc
   except httpx.RequestError as exc:
-    return f"AssetManager API 서버 연결 네트워크 오류: {exc}"
+    raise AssetClientError(
+        f"AssetManager API 서버 연결 네트워크 오류: {exc}"
+    ) from exc
   except Exception as exc:
-    return f"알 수 없는 오류 발생: {exc}"
+    raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
 
 
-async def get_watchlist_prices(country: str = "KR") -> str:
-  """AssetManager API로부터 특정 국가의 관심종목 실시간 시세를 조회합니다.
-
-  이 함수는 에이전트의 도구(Tool)로 등록되므로 상세한 docstring이 작성되어야 합니다.
+async def get_watchlist_prices(country: str = "KR") -> WatchlistPricesResponse:
+  """AssetManager API로부터 특정 국가의 관심종목 실시간 시세를 조회하여 Pydantic 모델로 반환합니다.
 
   Args:
       country: 조회할 국가 구분 ("KR" 또는 "US", 기본값 "KR")
 
   Returns:
-      관심종목명, 현재가, 등락률 정보를 포맷팅한 한국어 텍스트 또는 오류 메시지
+      WatchlistPricesResponse: 관심종목별 현재가 및 등락률 목록을 담은 Pydantic 객체
+
+  Raises:
+      AssetClientError: 설정 로드 실패, HTTP 호출 실패 또는 네트워크 오류 발생 시
   """
   try:
     config = Config.load()
   except ValueError as err:
-    return f"설정 로드 중 오류 발생: {err}"
+    raise AssetClientError(f"설정 로드 중 오류 발생: {err}") from err
 
   url = f"{config.asset_manager_api_url}/api/watchlist/prices"
   params = {"country": country.upper()}
@@ -116,32 +208,26 @@ async def get_watchlist_prices(country: str = "KR") -> str:
       response.raise_for_status()
       data = response.json()
 
-      if not data:
-        return f"📈 **관심종목 시세 정보 ({country.upper()})**\n등록된 관심종목이 없습니다."
-
-      lines = [f"📈 **관심종목 시세 정보 ({country.upper()})**"]
-      unit = "$" if country.upper() == "US" else "원"
-
+      prices = []
       for item in data:
-        stock_name = item.get("stock_name", "")
-        stock_code = item.get("stock_code", "")
-        current_price = item.get("current_price", 0.0)
-        change_rate = item.get("change_rate", 0.0)
-
-        # 등락률 포맷팅 (+ 기호 명시)
-        rate_str = f"{change_rate:+.2f}%"
-        lines.append(
-            f"- {stock_name} ({stock_code}): {current_price:,.0f}{unit} ({rate_str})"
-            if country.upper() != "US"
-            else f"- {stock_name} ({stock_code}): {unit}{current_price:,.2f} ({rate_str})"
+        prices.append(
+            WatchlistItemPrice(
+                stock_name=item.get("stock_name", ""),
+                stock_code=item.get("stock_code", ""),
+                current_price=item.get("current_price", 0.0),
+                change_rate=item.get("change_rate", 0.0),
+            )
         )
 
-      return "\n".join(lines)
+      return WatchlistPricesResponse(country=country.upper(), prices=prices)
 
   except httpx.HTTPStatusError as exc:
-    return f"AssetManager API 호출 실패 (HTTP 오류 코드: {exc.response.status_code})"
+    raise AssetClientError(
+        f"AssetManager API 호출 실패 (HTTP 오류 코드: {exc.response.status_code})"
+    ) from exc
   except httpx.RequestError as exc:
-    return f"AssetManager API 서버 연결 네트워크 오류: {exc}"
+    raise AssetClientError(
+        f"AssetManager API 서버 연결 네트워크 오류: {exc}"
+    ) from exc
   except Exception as exc:
-    return f"알 수 없는 오류 발생: {exc}"
-
+    raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc

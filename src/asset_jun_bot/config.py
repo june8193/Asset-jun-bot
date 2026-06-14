@@ -15,6 +15,9 @@ class Config:
       asset_manager_api_url: str,
       gemini_api_key: str,
       storage_dir: str,
+      model_router: str,
+      model_general_conversation: str,
+      model_asset_inquiry: str,
   ):
     """Config 클래스를 초기화합니다.
 
@@ -24,12 +27,18 @@ class Config:
         asset_manager_api_url: AssetManager API 서버 주소
         gemini_api_key: Google Gemini API 키
         storage_dir: 공통 저장소 디렉터리 경로
+        model_router: 라우팅용 Gemini 모델명
+        model_general_conversation: 일반 대화용 Gemini 모델명
+        model_asset_inquiry: 자산 조회용 Gemini 모델명
     """
     self.telegram_bot_token = telegram_bot_token
     self.telegram_allowed_user_ids = telegram_allowed_user_ids
     self.asset_manager_api_url = asset_manager_api_url
     self.gemini_api_key = gemini_api_key
     self.storage_dir = storage_dir
+    self.model_router = model_router
+    self.model_general_conversation = model_general_conversation
+    self.model_asset_inquiry = model_asset_inquiry
 
   @classmethod
   def load(cls) -> "Config":
@@ -73,6 +82,18 @@ class Config:
     if not storage_dir:
       raise ValueError("STORAGE_DIR 환경변수가 필요합니다.")
 
+    model_router = os.getenv("MODEL_ROUTER")
+    if not model_router:
+      raise ValueError("MODEL_ROUTER 환경변수가 필요합니다.")
+
+    model_general_conversation = os.getenv("MODEL_GENERAL_CONVERSATION")
+    if not model_general_conversation:
+      raise ValueError("MODEL_GENERAL_CONVERSATION 환경변수가 필요합니다.")
+
+    model_asset_inquiry = os.getenv("MODEL_ASSET_INQUIRY")
+    if not model_asset_inquiry:
+      raise ValueError("MODEL_ASSET_INQUIRY 환경변수가 필요합니다.")
+
     asset_manager_api_url = os.getenv(
         "ASSET_MANAGER_API_URL", "http://localhost:8000"
     )
@@ -83,4 +104,7 @@ class Config:
         asset_manager_api_url=asset_manager_api_url,
         gemini_api_key=gemini_api_key,
         storage_dir=storage_dir,
+        model_router=model_router,
+        model_general_conversation=model_general_conversation,
+        model_asset_inquiry=model_asset_inquiry,
     )

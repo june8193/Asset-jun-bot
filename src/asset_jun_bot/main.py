@@ -45,7 +45,7 @@ async def async_main():
     logger.warning("GEMINI_API_KEY 환경변수가 설정되지 않았습니다. Antigravity SDK가 실행 시 오류를 뱉을 수 있습니다.")
 
   # 3. 인스턴스 생성
-  agent_runner = AgentRunner()
+  agent_runner = AgentRunner(config=config)
   chat_history_manager = ChatHistoryManager(storage_dir=config.storage_dir)
   bot = TelegramBot(
       config=config,

@@ -19,6 +19,9 @@ def mock_config():
       asset_manager_api_url="http://mock-asset-server",
       gemini_api_key="mock_gemini_key",
       storage_dir="mock_storage_dir",
+      model_router="gemini-2.5-flash",
+      model_general_conversation="gemini-2.5-flash",
+      model_asset_inquiry="gemini-1.5-flash",
   )
 
 
