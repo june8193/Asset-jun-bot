@@ -25,10 +25,12 @@
 - **원칙**: 모든 파이썬 스크립트 및 도구 실행 시 반드시 `uv`를 사용합니다.
 - **실행 방법**: `uv run <script_path>` 형식을 사용하여 일관된 가상환경 내에서 실행되도록 합니다. (예: `uv run pytest`, `uv run python src/main.py`)
 
-## 4. Shell 명령어 실행 규칙 (Windows PowerShell)
-- **환경**: 현재 환경은 **Windows PowerShell**입니다.
-- **리다이렉션**: `2>/dev/null` 대신 `2>$null`을 사용해야 합니다.
-- **연산자**: `&&` 연산자 대신 `;`를 사용하거나 도구 호출을 분리하십시오.
-- **대체 명령어**:
-  - `grep` -> `Select-String`
-  - `rm -rf` -> `Remove-Item -Recurse -Force`
+## 4. Shell 명령어 실행 규칙 (OS 및 환경별 대응)
+- **Windows PowerShell 환경인 경우**:
+  - **리다이렉션**: `2>/dev/null` 대신 `2>$null`을 사용해야 합니다.
+  - **연산자**: `&&` 연산자 대신 `;`를 사용하거나 도구 호출을 분리하십시오.
+  - **대체 명령어**:
+    - `grep` -> `Select-String`
+    - `rm -rf` -> `Remove-Item -Recurse -Force`
+- **macOS 및 Linux (Bash, Zsh 등) 환경인 경우**:
+  - 표준 Unix 계열 명령어와 연산자(`&&`, `2>/dev/null`, `rm -rf`, `grep` 등)를 그대로 사용합니다.
