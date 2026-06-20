@@ -17,3 +17,6 @@ work
 
 # Pytest cache
 .pytest_cache/
+
+# GitHub Actions Runner
+actions-runner/

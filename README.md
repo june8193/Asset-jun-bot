@@ -64,6 +64,27 @@ pm2 start ecosystem.config.js
 * **서버 재시작**: `pm2 restart asset-jun-bot`
 * **서버 삭제**: `pm2 delete asset-jun-bot`
 
+### 4. GitHub Actions Self-hosted Runner를 활용한 자동 배포 및 재시작
+서버가 외부망에 직접 노출되지 않는 환경(로컬 개발망, 내부 서버 등)에서도 GitHub `master` 브랜치에 코드가 push 되었을 때 자동으로 코드를 최신화하고 서버를 재시작하도록 구축할 수 있습니다.
+
+#### 전제 조건
+* 프로젝트 루트에 `.github/workflows/deploy.yml` 파일이 존재해야 합니다.
+* 로컬 서버에 GitHub Actions Runner가 설치되어 있어야 합니다.
+
+#### 1) GitHub Actions Runner 등록 및 토큰 발급
+1. GitHub 레포지토리의 **Settings** -> **Actions** -> **Runners**로 이동합니다.
+2. **New self-hosted runner**를 클릭하고 OS(macOS)와 아키텍처를 선택합니다.
+3. 안내되는 스크립트를 서버 터미널에서 차례대로 실행하여 러너 패키지를 설치하고 토큰 설정을 마칩니다.
+
+#### 2) PM2를 사용한 백그라운드 Runner 실행
+설치가 끝난 러너 폴더 내에서 터미널을 닫아도 항상 실행되도록 PM2 데몬 프로세스로 러너를 등록합니다.
+```bash
+# 러너가 설치된 폴더 내에서 실행
+pm2 start ./run.sh --name "github-runner"
+pm2 save
+```
+등록이 완료되면 `pm2 status`를 통해 `github-runner` 프로세스가 상시 가동 중임을 확인할 수 있습니다. 이제 `master` 브랜치에 push가 발생할 때마다 로컬 서버가 자동으로 코드를 풀하고 서버를 재기동합니다.
+
 ## 테스트 실행
 
 프로젝트 내 구현된 전체 단위 테스트를 구동하려면 아래 명령을 사용합니다.

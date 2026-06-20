@@ -1,0 +1,18 @@
+name: Local Server Deploy
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Pull code, sync dependencies and reload PM2
+        run: |
+          cd /Users/seongeunhong/Desktop/local_repo/Asset-jun-bot
+          git pull origin master
+          uv sync --frozen
+          pm2 reload ecosystem.config.js
