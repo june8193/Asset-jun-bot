@@ -22,6 +22,8 @@ def mock_config():
       model_router="gemini-2.5-flash",
       model_general_conversation="gemini-2.5-flash",
       model_asset_inquiry="gemini-1.5-flash",
+      naver_client_id="mock_naver_id",
+      naver_client_secret="mock_naver_secret",
   )
 
 

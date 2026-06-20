@@ -21,6 +21,8 @@ def setup_base_envs(monkeypatch):
   monkeypatch.setenv("MODEL_ROUTER", "gemini-2.5-flash")
   monkeypatch.setenv("MODEL_GENERAL_CONVERSATION", "gemini-2.5-flash")
   monkeypatch.setenv("MODEL_ASSET_INQUIRY", "gemini-1.5-flash")
+  monkeypatch.setenv("NAVER_API_CLIENT_ID", "mock_naver_id")
+  monkeypatch.setenv("NAVER_API_CLIENT_SECRET", "mock_naver_secret")
 
 
 def test_config_missing_telegram_token(monkeypatch):
@@ -76,6 +78,8 @@ def test_config_valid_parsing(monkeypatch):
   assert config.model_router == "gemini-2.5-flash"
   assert config.model_general_conversation == "gemini-2.5-flash"
   assert config.model_asset_inquiry == "gemini-1.5-flash"
+  assert config.naver_client_id == "mock_naver_id"
+  assert config.naver_client_secret == "mock_naver_secret"
   # 기본값 확인
   assert config.asset_manager_api_url == "http://localhost:8000"
 
@@ -127,3 +131,24 @@ def test_config_missing_model_asset_inquiry(monkeypatch):
   with pytest.raises(ValueError) as excinfo:
     Config.load()
   assert "MODEL_ASSET_INQUIRY" in str(excinfo.value)
+
+
+def test_config_missing_naver_api_client_id(monkeypatch):
+  """NAVER_API_CLIENT_ID가 없을 때 ValueError를 발생하는지 테스트합니다."""
+  setup_base_envs(monkeypatch)
+  monkeypatch.delenv("NAVER_API_CLIENT_ID", raising=False)
+
+  with pytest.raises(ValueError) as excinfo:
+    Config.load()
+  assert "NAVER_API_CLIENT_ID" in str(excinfo.value)
+
+
+def test_config_missing_naver_api_client_secret(monkeypatch):
+  """NAVER_API_CLIENT_SECRET가 없을 때 ValueError를 발생하는지 테스트합니다."""
+  setup_base_envs(monkeypatch)
+  monkeypatch.delenv("NAVER_API_CLIENT_SECRET", raising=False)
+
+  with pytest.raises(ValueError) as excinfo:
+    Config.load()
+  assert "NAVER_API_CLIENT_SECRET" in str(excinfo.value)
+

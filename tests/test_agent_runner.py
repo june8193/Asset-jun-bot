@@ -16,6 +16,8 @@ def mock_env(monkeypatch):
   monkeypatch.setenv("MODEL_ROUTER", "gemini-2.5-flash")
   monkeypatch.setenv("MODEL_GENERAL_CONVERSATION", "gemini-2.5-flash")
   monkeypatch.setenv("MODEL_ASSET_INQUIRY", "gemini-1.5-flash")
+  monkeypatch.setenv("NAVER_API_CLIENT_ID", "mock_naver_id")
+  monkeypatch.setenv("NAVER_API_CLIENT_SECRET", "mock_naver_secret")
 
 
 @pytest.mark.asyncio
