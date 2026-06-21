@@ -366,7 +366,7 @@ async def test_telegram_bot_realtime_status_updates(mock_config, mock_agent_runn
   async def mock_ask(prompt, on_status_update=None):
     if on_status_update:
       await on_status_update("🔧 도구 실행 중: test_tool")
-      await on_status_update("✅ 도구 완료: test_tool")
+      await on_status_update("✍️ AI 답변을 작성 중입니다...")
     return "최종 자산 분석 결과입니다."
   mock_agent_runner.ask.side_effect = mock_ask
 
@@ -374,7 +374,7 @@ async def test_telegram_bot_realtime_status_updates(mock_config, mock_agent_runn
 
   assert next_offset == 501
 
-  # editMessageText가 총 3회 호출되어야 함 (도구 실행 중, 도구 완료, 최종 답변)
+  # editMessageText가 총 3회 호출되어야 함 (도구 실행 중, 답변 작성 중, 최종 답변)
   assert edit_message_route.call_count == 3
 
   # 각 호출 내용 검증
@@ -383,7 +383,7 @@ async def test_telegram_bot_realtime_status_updates(mock_config, mock_agent_runn
   body_3 = edit_message_route.calls[2].request.read().decode("utf-8")
 
   assert "🔧 도구 실행 중: test_tool" in body_1
-  assert "✅ 도구 완료: test_tool" in body_2
+  assert "✍️ AI 답변을 작성 중입니다..." in body_2
   assert "최종 자산 분석 결과입니다." in body_3
 
 

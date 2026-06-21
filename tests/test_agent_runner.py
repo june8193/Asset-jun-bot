@@ -144,5 +144,6 @@ async def test_agent_runner_with_status_updates(mocker):
 
   tool_result = ToolResult(name="korea_daily_index_report")
   await post_hook.run(HookContext(), tool_result)
-  assert any("완료" in call for call in callback_calls)
+  assert any("작성 중" in call for call in callback_calls)
+
 

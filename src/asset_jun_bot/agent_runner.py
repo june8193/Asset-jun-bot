@@ -99,8 +99,8 @@ class AgentRunner:
 
       @post_tool_call
       async def post_tool_call_hook(tool_result):
-        """도구 실행 완료 후에 상태 업데이트 콜백을 호출합니다."""
-        msg = f"✅ 도구 완료: {tool_result.name}"
+        """도구 실행 완료 후에 답변 작성 중 상태를 콜백으로 호출합니다."""
+        msg = "✍️ AI 답변을 작성 중입니다..."
         await on_status_update(msg)
 
       hooks_list = [pre_tool_call_hook, post_tool_call_hook]
