@@ -41,33 +41,43 @@ description: Generate, save, and convert the daily KOSPI/KOSDAQ index status rep
   - **보고서 템플릿**:
     - **평일 (is_holiday=false)인 경우**:
       ```markdown
-      # 국내 주식 시장 일일 현황 보고서 (YYYY-MM-DD)
+      # 📢 국내 주식 시장 일일 현황 보고서 (YYYY-MM-DD)
+      ---
 
-      ### 지수 현황
+      ### 📊 지수 현황
       - KOSPI: [코스피지수] 포인트 ([등락률]%)
       - KOSDAQ: [코스닥지수] 포인트 ([등락률]%)
 
-      ### 주요 뉴스
+      ---
+
+      ### 📰 주요 뉴스
       - [뉴스제목1](URL): 요약 내용
       - [뉴스제목2](URL): 요약 내용
       ...
 
-      ### 종합 분석
+      ---
+
+      ### 💡 종합 분석
       [지수 흐름과 뉴스를 결합한 분석 및 AI 전망]
       ```
     - **휴장일 (is_holiday=true)인 경우**:
       ```markdown
-      # 국내 주식 시장 일일 현황 보고서 (YYYY-MM-DD)
+      # 📢 국내 주식 시장 일일 현황 보고서 (YYYY-MM-DD)
+      ---
 
-      ### 지수 현황
+      ### 📊 지수 현황
       - 금일은 한국 주식 시장 휴장일(사유: [description])로 인해 지수 정보가 제공되지 않습니다.
 
-      ### 주요 뉴스
+      ---
+
+      ### 📰 주요 뉴스
       - [뉴스제목1](URL): 요약 내용
       - [뉴스제목2](URL): 요약 내용
       ...
 
-      ### 종합 분석
+      ---
+
+      ### 💡 종합 분석
       [휴장일 뉴스 흐름 분석 및 향후 전망]
       ```
   - ⚠️ 주의: 텔레그램 등 메신저 연동 시 깨짐 방지를 위해 절대 **표(Table) 서식은 사용하지 마십시오**.
@@ -88,6 +98,8 @@ description: Generate, save, and convert the daily KOSPI/KOSDAQ index status rep
   - 메시지 구성 예시:
     ```markdown
     [작성된 마크다운 보고서 전체 내용]
+
+    ---
 
     ### 📁 생성된 파일
     - **마크다운 보고서**: [파일명]
