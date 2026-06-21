@@ -15,9 +15,7 @@ class Config:
       asset_manager_api_url: str,
       gemini_api_key: str,
       storage_dir: str,
-      model_router: str,
-      model_general_conversation: str,
-      model_asset_inquiry: str,
+      model_chat: str,
       naver_client_id: str,
       naver_client_secret: str,
   ):
@@ -29,9 +27,7 @@ class Config:
         asset_manager_api_url: AssetManager API 서버 주소
         gemini_api_key: Google Gemini API 키
         storage_dir: 공통 저장소 디렉터리 경로
-        model_router: 라우팅용 Gemini 모델명
-        model_general_conversation: 일반 대화용 Gemini 모델명
-        model_asset_inquiry: 자산 조회용 Gemini 모델명
+        model_chat: 대화 및 자산 분석용 Gemini 모델명
         naver_client_id: 네이버 Client ID
         naver_client_secret: 네이버 Client Secret
     """
@@ -40,9 +36,7 @@ class Config:
     self.asset_manager_api_url = asset_manager_api_url
     self.gemini_api_key = gemini_api_key
     self.storage_dir = storage_dir
-    self.model_router = model_router
-    self.model_general_conversation = model_general_conversation
-    self.model_asset_inquiry = model_asset_inquiry
+    self.model_chat = model_chat
     self.naver_client_id = naver_client_id
     self.naver_client_secret = naver_client_secret
 
@@ -88,17 +82,9 @@ class Config:
     if not storage_dir:
       raise ValueError("STORAGE_DIR 환경변수가 필요합니다.")
 
-    model_router = os.getenv("MODEL_ROUTER")
-    if not model_router:
-      raise ValueError("MODEL_ROUTER 환경변수가 필요합니다.")
-
-    model_general_conversation = os.getenv("MODEL_GENERAL_CONVERSATION")
-    if not model_general_conversation:
-      raise ValueError("MODEL_GENERAL_CONVERSATION 환경변수가 필요합니다.")
-
-    model_asset_inquiry = os.getenv("MODEL_ASSET_INQUIRY")
-    if not model_asset_inquiry:
-      raise ValueError("MODEL_ASSET_INQUIRY 환경변수가 필요합니다.")
+    model_chat = os.getenv("MODEL_CHAT")
+    if not model_chat:
+      raise ValueError("MODEL_CHAT 환경변수가 필요합니다.")
 
     naver_client_id = os.getenv("NAVER_API_CLIENT_ID")
     if not naver_client_id:
@@ -118,9 +104,7 @@ class Config:
         asset_manager_api_url=asset_manager_api_url,
         gemini_api_key=gemini_api_key,
         storage_dir=storage_dir,
-        model_router=model_router,
-        model_general_conversation=model_general_conversation,
-        model_asset_inquiry=model_asset_inquiry,
+        model_chat=model_chat,
         naver_client_id=naver_client_id,
         naver_client_secret=naver_client_secret,
     )

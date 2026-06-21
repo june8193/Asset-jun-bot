@@ -98,23 +98,11 @@ class TelegramBot:
         )
 
         # 1. 임시 메시지 전송 및 typing 상태 표시
-        status_msg_id = await self._send_message(chat_id, "🔄 [1/3] 요청 분석 중...")
+        status_msg_id = await self._send_message(chat_id, "🔄 AI 답변을 준비 중입니다...")
         await self._send_chat_action(chat_id, "typing")
 
-        # 2. 상태 업데이트 콜백 정의
-        async def on_status_update(task_type: str):
-          if status_msg_id is None:
-            return
-          if task_type == "ASSET_INQUIRY":
-            status_text = "🔄 [2/3] 자산 데이터 조회 및 AI 분석 중..."
-          else:
-            status_text = "🔄 [2/3] 답변 작성 및 분석 중..."
-          
-          await self._edit_message(chat_id, status_msg_id, status_text)
-          await self._send_chat_action(chat_id, "typing")
-
         # AI 에이전트 호출하여 응답 생성
-        reply_text = await self.agent_runner.ask(text, on_status_update=on_status_update)
+        reply_text = await self.agent_runner.ask(text)
 
         # 봇 대화 내역 저장
         await self.chat_history_manager.save_message(

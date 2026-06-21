@@ -19,9 +19,7 @@ def mock_config():
       asset_manager_api_url="http://mock-asset-server",
       gemini_api_key="mock_gemini_key",
       storage_dir="mock_storage_dir",
-      model_router="gemini-2.5-flash",
-      model_general_conversation="gemini-2.5-flash",
-      model_asset_inquiry="gemini-1.5-flash",
+      model_chat="gemini-3.5-flash",
       naver_client_id="mock_naver_id",
       naver_client_secret="mock_naver_secret",
   )
@@ -99,7 +97,7 @@ async def test_telegram_bot_authorized_user(mock_config, mock_agent_runner):
   # 임시 메시지가 발송되었는지 확인
   assert send_message_route.called
   req_send_body = send_message_route.calls.last.request.read().decode("utf-8")
-  assert "🔄 [1/3] 요청 분석 중..." in req_send_body
+  assert "🔄 AI 답변을 준비 중입니다..." in req_send_body
 
   # editMessageText를 통해 최종 답변이 갔는지 확인
   assert edit_message_route.called
@@ -294,12 +292,8 @@ async def test_telegram_bot_progress_flow(mock_config, mock_agent_runner):
       "https://api.telegram.org/botmock_bot_token/sendChatAction"
   ).mock(return_value=Response(200, json={"ok": True}))
 
-  # AgentRunner.ask가 호출될 때 콜백을 트리거하도록 정의
-  async def fake_ask(prompt, on_status_update=None):
-    if on_status_update:
-      await on_status_update("ASSET_INQUIRY")
-    return "최종 자산 분석 결과입니다."
-  mock_agent_runner.ask = fake_ask
+  # AgentRunner.ask 모킹
+  mock_agent_runner.ask.return_value = "최종 자산 분석 결과입니다."
 
   next_offset = await bot.poll_once(offset=None)
 
@@ -308,24 +302,19 @@ async def test_telegram_bot_progress_flow(mock_config, mock_agent_runner):
   # 1. 초기 임시 메시지 전송 확인
   assert send_message_route.called
   req_send_body = send_message_route.calls.last.request.read().decode("utf-8")
-  assert "🔄 [1/3] 요청 분석 중..." in req_send_body
+  assert "🔄 AI 답변을 준비 중입니다..." in req_send_body
 
-  # 2. sendChatAction이 최소 두 번 호출되었는지 확인 (초기 및 상태 업데이트 시)
-  assert chat_action_route.call_count >= 2
+  # 2. sendChatAction이 호출되었는지 확인
+  assert chat_action_route.call_count >= 1
   req_action_body = chat_action_route.calls[0].request.read().decode("utf-8")
   assert '"action":"typing"' in req_action_body
 
-  # 3. editMessageText가 두 번 호출되었는지 확인
-  assert edit_message_route.call_count == 2
+  # 3. editMessageText가 한 번 호출되었는지 확인 (최종 답변 수정)
+  assert edit_message_route.call_count == 1
   
-  # 3.1 1차 수정 (ASSET_INQUIRY 콜백에 의한 수정)
-  req_edit1_body = edit_message_route.calls[0].request.read().decode("utf-8")
-  assert '"message_id":777' in req_edit1_body
-  assert "🔄 [2/3] 자산 데이터 조회 및 AI 분석 중..." in req_edit1_body
-
-  # 3.2 2차 수정 (최종 답변에 의한 수정)
-  req_edit2_body = edit_message_route.calls[1].request.read().decode("utf-8")
-  assert '"message_id":777' in req_edit2_body
-  assert "최종 자산 분석 결과입니다." in req_edit2_body
+  # 3.1 최종 수정 내용 확인
+  req_edit_body = edit_message_route.calls[0].request.read().decode("utf-8")
+  assert '"message_id":777' in req_edit_body
+  assert "최종 자산 분석 결과입니다." in req_edit_body
 
 

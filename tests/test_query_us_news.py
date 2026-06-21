@@ -15,14 +15,26 @@ def test_query_us_news_success(capsys):
   """yfinance 뉴스 조회 성공 시 포맷팅된 마크다운을 출력하는지 테스트합니다."""
   mock_news = [
       {
-          "title": "US Stocks Surge",
-          "link": "https://finance.yahoo.com/news/1",
-          "publisher": "Bloomberg"
+          "content": {
+              "title": "US Stocks Surge",
+              "clickThroughUrl": {
+                  "url": "https://finance.yahoo.com/news/1"
+              },
+              "provider": {
+                  "displayName": "Bloomberg"
+              }
+          }
       },
       {
-          "title": "Fed Rate Decision",
-          "link": "https://finance.yahoo.com/news/2",
-          "publisher": "Reuters"
+          "content": {
+              "title": "Fed Rate Decision",
+              "clickThroughUrl": {
+                  "url": "https://finance.yahoo.com/news/2"
+              },
+              "provider": {
+                  "displayName": "Reuters"
+              }
+          }
       }
   ]
 

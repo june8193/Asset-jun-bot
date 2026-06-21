@@ -18,9 +18,7 @@ def setup_base_envs(monkeypatch):
   monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "12345,67890")
   monkeypatch.setenv("GEMINI_API_KEY", "mock_gemini_key")
   monkeypatch.setenv("STORAGE_DIR", "mock_storage_dir")
-  monkeypatch.setenv("MODEL_ROUTER", "gemini-2.5-flash")
-  monkeypatch.setenv("MODEL_GENERAL_CONVERSATION", "gemini-2.5-flash")
-  monkeypatch.setenv("MODEL_ASSET_INQUIRY", "gemini-1.5-flash")
+  monkeypatch.setenv("MODEL_CHAT", "gemini-3.5-flash")
   monkeypatch.setenv("NAVER_API_CLIENT_ID", "mock_naver_id")
   monkeypatch.setenv("NAVER_API_CLIENT_SECRET", "mock_naver_secret")
 
@@ -75,9 +73,7 @@ def test_config_valid_parsing(monkeypatch):
   assert config.telegram_allowed_user_ids == {12345, 67890}
   assert config.gemini_api_key == "mock_gemini_key"
   assert config.storage_dir == "mock_storage_dir"
-  assert config.model_router == "gemini-2.5-flash"
-  assert config.model_general_conversation == "gemini-2.5-flash"
-  assert config.model_asset_inquiry == "gemini-1.5-flash"
+  assert config.model_chat == "gemini-3.5-flash"
   assert config.naver_client_id == "mock_naver_id"
   assert config.naver_client_secret == "mock_naver_secret"
   # 기본값 확인
@@ -103,34 +99,14 @@ def test_config_missing_storage_dir(monkeypatch):
   assert "STORAGE_DIR" in str(excinfo.value)
 
 
-def test_config_missing_model_router(monkeypatch):
-  """MODEL_ROUTER가 없을 때 ValueError를 발생하는지 테스트합니다."""
+def test_config_missing_model_chat(monkeypatch):
+  """MODEL_CHAT이 없을 때 ValueError를 발생하는지 테스트합니다."""
   setup_base_envs(monkeypatch)
-  monkeypatch.delenv("MODEL_ROUTER", raising=False)
+  monkeypatch.delenv("MODEL_CHAT", raising=False)
 
   with pytest.raises(ValueError) as excinfo:
     Config.load()
-  assert "MODEL_ROUTER" in str(excinfo.value)
-
-
-def test_config_missing_model_general_conversation(monkeypatch):
-  """MODEL_GENERAL_CONVERSATION이 없을 때 ValueError를 발생하는지 테스트합니다."""
-  setup_base_envs(monkeypatch)
-  monkeypatch.delenv("MODEL_GENERAL_CONVERSATION", raising=False)
-
-  with pytest.raises(ValueError) as excinfo:
-    Config.load()
-  assert "MODEL_GENERAL_CONVERSATION" in str(excinfo.value)
-
-
-def test_config_missing_model_asset_inquiry(monkeypatch):
-  """MODEL_ASSET_INQUIRY가 없을 때 ValueError를 발생하는지 테스트합니다."""
-  setup_base_envs(monkeypatch)
-  monkeypatch.delenv("MODEL_ASSET_INQUIRY", raising=False)
-
-  with pytest.raises(ValueError) as excinfo:
-    Config.load()
-  assert "MODEL_ASSET_INQUIRY" in str(excinfo.value)
+  assert "MODEL_CHAT" in str(excinfo.value)
 
 
 def test_config_missing_naver_api_client_id(monkeypatch):
