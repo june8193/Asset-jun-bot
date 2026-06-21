@@ -24,9 +24,20 @@ def main():
       return
 
     for item in news_list[:args.limit]:
-      title = item.get("title", "")
-      link = item.get("link", "")
-      publisher = item.get("publisher", "Yahoo Finance")
+      content = item.get("content", {})
+      title = content.get("title", "")
+      
+      link = ""
+      click_through = content.get("clickThroughUrl")
+      if click_through:
+        link = click_through.get("url", "")
+      if not link:
+        canonical = content.get("canonicalUrl")
+        if canonical:
+          link = canonical.get("url", "")
+          
+      provider = content.get("provider", {})
+      publisher = provider.get("displayName", "Yahoo Finance")
       print(f"- [{title}]({link}) ({publisher})")
 
   except Exception as err:

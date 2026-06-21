@@ -6,12 +6,15 @@ import sys
 from asset_jun_bot.asset_client import send_telegram_message, AssetClientError
 
 
+import os
+
+
 async def main():
   if len(sys.argv) < 2:
-    print("사용법: uv run python scripts/send_telegram.py <메시지 내용> [chat_id]")
+    print("사용법: uv run python scripts/send_telegram.py <메시지 내용 또는 파일 경로> [chat_id]")
     sys.exit(1)
 
-  message = sys.argv[1]
+  message_or_path = sys.argv[1]
   chat_id = None
   if len(sys.argv) >= 3:
     try:
@@ -19,6 +22,16 @@ async def main():
     except ValueError:
       print(f"오류: chat_id는 숫자여야 합니다. 입력값: {sys.argv[2]}")
       sys.exit(1)
+
+  if os.path.isfile(message_or_path):
+    try:
+      with open(message_or_path, "r", encoding="utf-8") as f:
+        message = f.read()
+    except Exception as e:
+      print(f"오류: 파일을 읽을 수 없습니다 ({message_or_path}): {e}")
+      sys.exit(1)
+  else:
+    message = message_or_path
 
   try:
     result = await send_telegram_message(message, chat_id=chat_id)
