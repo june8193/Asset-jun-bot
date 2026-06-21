@@ -25,7 +25,7 @@ description: Generate, save, and convert the daily S&P 500/NASDAQ/DOW index stat
 - [ ] **지수 데이터 조회 선택**:
   - `IS_HOLIDAY`가 `False`인 경우(정상 영업일): 쉘 명령어 실행 도구(`run_command` 등)를 통해 `uv run python scripts/query_market.py --action indices --country US` 명령을 실행하여 오늘 마감된 미국 3대 지수(S&P 500, NASDAQ, DOW JONES) 데이터를 획득합니다.
   - `IS_HOLIDAY`가 `True`인 경우(휴장일/주말): 지수 조회 명령을 **생략**합니다.
-- [ ] **시장 뉴스 검색**: 평일, 휴장일 여부와 무관하게 쉘 명령어 실행 도구(`run_command` 등)를 통해 전용 CLI 스크립트(`uv run python scripts/query_us_news.py --limit 5`)를 실행하여 yfinance 상의 최신 미국 뉴스를 수집합니다.
+- [ ] **시장 뉴스 검색**: 평일, 휴장일 여부와 무관하게 쉘 명령어 실행 도구(`run_command` 등)를 통해 전용 CLI 스크립트(`uv run python scripts/query_us_news.py --limit 5`)를 실행하여 yfinance 상의 최신 미국 뉴스를 수집합니다. (※ 이 스크립트는 본문 없이 뉴스 제목, 링크, 언론사 정보만 반환하므로, 상세 요약을 위해서는 추가 검색 도구나 웹 조회 도구를 활용할 수 있습니다.)
 - [ ] **영문 뉴스 AI 번역 및 요약**: 수집된 영문 뉴스 리스트를 Gemini 모델(자기 자신)을 통해 자연스러운 한국어로 번역하고 핵심 내용을 간략하게 요약합니다.
 
 ### 2단계: 마크다운 파일 생성 및 저장
