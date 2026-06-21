@@ -227,6 +227,45 @@ async def test_get_market_indices_success():
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_get_market_indices_us_success():
+  """미국 시장 지수 조회 API 호출 성공 시 올바른 Pydantic 응답 모델을 반환하는지 테스트합니다."""
+  mock_data = [
+      {
+          "index_name": "S&P 500",
+          "current_price": 5400.50,
+          "change_rate": 0.85
+      },
+      {
+          "index_name": "NASDAQ",
+          "current_price": 17850.20,
+          "change_rate": 1.15
+      },
+      {
+          "index_name": "DOW JONES",
+          "current_price": 39500.10,
+          "change_rate": 0.25
+      }
+  ]
+  respx.get("http://mock-asset-server/api/market/indices?country=US").mock(
+      return_value=Response(200, json=mock_data)
+  )
+
+  result = await get_market_indices(country="US")
+  assert isinstance(result, MarketIndicesResponse)
+  assert len(result.indices) == 3
+  assert result.indices[0].index_name == "S&P 500"
+  assert result.indices[0].current_price == 5400.50
+  assert result.indices[0].change_rate == 0.85
+  assert result.indices[1].index_name == "NASDAQ"
+  assert result.indices[1].current_price == 17850.20
+  assert result.indices[1].change_rate == 1.15
+  assert result.indices[2].index_name == "DOW JONES"
+  assert result.indices[2].current_price == 39500.10
+  assert result.indices[2].change_rate == 0.25
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_get_market_indices_http_error():
   """시장 지수 조회 API 호출 시 HTTP 에러가 발생했을 때 AssetClientError 예외를 발생시키는지 테스트합니다."""
   respx.get("http://mock-asset-server/api/market/indices").mock(

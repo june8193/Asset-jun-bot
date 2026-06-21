@@ -19,12 +19,13 @@ async def run_check_holiday(date: str, country: str):
     sys.exit(1)
 
 
-async def run_get_indices():
+async def run_get_indices(country: str):
   try:
-    res = await get_market_indices()
+    res = await get_market_indices(country=country)
     for item in res.indices:
-      print(f"INDEX_{item.index_name.upper()}_PRICE: {item.current_price}")
-      print(f"INDEX_{item.index_name.upper()}_CHANGE: {item.change_rate}")
+      name_normalized = item.index_name.upper().replace(" ", "_")
+      print(f"INDEX_{name_normalized}_PRICE: {item.current_price}")
+      print(f"INDEX_{name_normalized}_CHANGE: {item.change_rate}")
   except AssetClientError as err:
     print(f"Error getting market indices: {err}", file=sys.stderr)
     sys.exit(1)
@@ -41,7 +42,7 @@ def main():
   if args.action == "holiday":
     asyncio.run(run_check_holiday(args.date, args.country))
   elif args.action == "indices":
-    asyncio.run(run_get_indices())
+    asyncio.run(run_get_indices(args.country))
 
 
 if __name__ == "__main__":

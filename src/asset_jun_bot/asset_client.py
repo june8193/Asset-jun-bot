@@ -272,11 +272,14 @@ async def get_watchlist_prices(country: str = "KR") -> WatchlistPricesResponse:
     raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
 
 
-async def get_market_indices() -> MarketIndicesResponse:
-  """AssetManager API로부터 KOSPI/KOSDAQ 지수 정보를 조회하여 Pydantic 모델로 반환합니다.
+async def get_market_indices(country: str = "KR") -> MarketIndicesResponse:
+  """AssetManager API로부터 KOSPI/KOSDAQ 또는 미국 지수 정보를 조회하여 Pydantic 모델로 반환합니다.
+
+  Args:
+      country: 조회할 국가 구분 ("KR" 또는 "US", 기본값 "KR")
 
   Returns:
-      MarketIndicesResponse: 코스피, 코스닥 지수 정보를 담은 Pydantic 객체
+      MarketIndicesResponse: 지수 정보를 담은 Pydantic 객체
 
   Raises:
       AssetClientError: 설정 로드 실패, HTTP 호출 실패 또는 네트워크 오류 발생 시
@@ -287,10 +290,11 @@ async def get_market_indices() -> MarketIndicesResponse:
     raise AssetClientError(f"설정 로드 중 오류 발생: {err}") from err
 
   url = f"{config.asset_manager_api_url}/api/market/indices"
+  params = {"country": country.upper()}
 
   try:
     async with httpx.AsyncClient(timeout=10.0) as client:
-      response = await client.get(url)
+      response = await client.get(url, params=params)
       response.raise_for_status()
       data = response.json()
 
