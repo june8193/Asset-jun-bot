@@ -101,8 +101,24 @@ class TelegramBot:
         status_msg_id = await self._send_message(chat_id, "🔄 AI 답변을 준비 중입니다...")
         await self._send_chat_action(chat_id, "typing")
 
+        last_status_text = "🔄 AI 답변을 준비 중입니다..."
+
+        # 상태 메시지 수정을 위한 비동기 콜백 정의
+        async def on_status_update(status_text: str):
+          nonlocal last_status_text
+          # CHAT은 초기 세션 상태이므로 메시지를 변경할 필요가 없습니다.
+          if status_text == "CHAT":
+            return
+          # 동일한 텍스트로의 연속적인 중복 수정을 방지합니다.
+          if status_text == last_status_text:
+            return
+          last_status_text = status_text
+
+          if status_msg_id is not None:
+            await self._edit_message(chat_id, status_msg_id, status_text)
+
         # AI 에이전트 호출하여 응답 생성
-        reply_text = await self.agent_runner.ask(text)
+        reply_text = await self.agent_runner.ask(text, on_status_update=on_status_update)
 
         # 봇 대화 내역 저장
         await self.chat_history_manager.save_message(

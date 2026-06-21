@@ -318,3 +318,73 @@ async def test_telegram_bot_progress_flow(mock_config, mock_agent_runner):
   assert "최종 자산 분석 결과입니다." in req_edit_body
 
 
+@pytest.mark.asyncio
+@respx.mock
+async def test_telegram_bot_realtime_status_updates(mock_config, mock_agent_runner):
+  """에이전트가 동작하며 콜백을 호출할 때 텔레그램 진행 상태 메시지가 순차적으로 수정되는지 테스트합니다."""
+  mock_chat_history_manager = AsyncMock(spec=ChatHistoryManager)
+  bot = TelegramBot(
+      config=mock_config,
+      agent_runner=mock_agent_runner,
+      chat_history_manager=mock_chat_history_manager,
+  )
+
+  # getUpdates 모킹
+  updates_response = {
+      "ok": True,
+      "result": [
+          {
+              "update_id": 500,
+              "message": {
+                  "message_id": 1,
+                  "chat": {"id": 12345, "type": "private"},
+                  "text": "내 자산 얼마야?",
+              },
+          }
+      ],
+  }
+  respx.get("https://api.telegram.org/botmock_bot_token/getUpdates").mock(
+      return_value=Response(200, json=updates_response)
+  )
+
+  # sendMessage 모킹
+  send_message_route = respx.post(
+      "https://api.telegram.org/botmock_bot_token/sendMessage"
+  ).mock(return_value=Response(200, json={"ok": True, "result": {"message_id": 777}}))
+
+  # editMessageText 모킹
+  edit_message_route = respx.post(
+      "https://api.telegram.org/botmock_bot_token/editMessageText"
+  ).mock(return_value=Response(200, json={"ok": True}))
+
+  # sendChatAction 모킹
+  respx.post(
+      "https://api.telegram.org/botmock_bot_token/sendChatAction"
+  ).mock(return_value=Response(200, json={"ok": True}))
+
+  # AgentRunner.ask 모킹: 실행 중 콜백을 시뮬레이션
+  async def mock_ask(prompt, on_status_update=None):
+    if on_status_update:
+      await on_status_update("🔧 도구 실행 중: test_tool")
+      await on_status_update("✅ 도구 완료: test_tool")
+    return "최종 자산 분석 결과입니다."
+  mock_agent_runner.ask.side_effect = mock_ask
+
+  next_offset = await bot.poll_once(offset=None)
+
+  assert next_offset == 501
+
+  # editMessageText가 총 3회 호출되어야 함 (도구 실행 중, 도구 완료, 최종 답변)
+  assert edit_message_route.call_count == 3
+
+  # 각 호출 내용 검증
+  body_1 = edit_message_route.calls[0].request.read().decode("utf-8")
+  body_2 = edit_message_route.calls[1].request.read().decode("utf-8")
+  body_3 = edit_message_route.calls[2].request.read().decode("utf-8")
+
+  assert "🔧 도구 실행 중: test_tool" in body_1
+  assert "✅ 도구 완료: test_tool" in body_2
+  assert "최종 자산 분석 결과입니다." in body_3
+
+
+

@@ -49,6 +49,9 @@ class AgentRunner:
     Returns:
         에이전트의 답변 텍스트 (에러 발생 시 에러 요약 메시지)
     """
+    from google.antigravity.hooks import pre_tool_call_decide, post_tool_call
+    from google.antigravity.types import HookResult
+
     # 1. 상태 업데이트 콜백이 전달된 경우 호출 (하위 호환성 지원)
     if on_status_update:
       await on_status_update("CHAT")
@@ -61,10 +64,52 @@ class AgentRunner:
         policy.allow("run_command"),
     ]
 
+    hooks_list = []
+    if on_status_update:
+      @pre_tool_call_decide
+      async def pre_tool_call_hook(tool_call):
+        """도구 실행 전에 상태 업데이트 콜백을 호출합니다."""
+        # 스킬 이름 추출 (canonical_path가 있다면 슬래시 앞부분)
+        skill_name = None
+        if getattr(tool_call, "canonical_path", None):
+          parts = tool_call.canonical_path.split("/")
+          if len(parts) > 1:
+            skill_name = parts[0]
+
+        args_str = ", ".join(f"{k}={repr(v)}" for k, v in tool_call.args.items())
+        # CommandLine인 경우 쉘 명령어 내용을 그대로 노출
+        if tool_call.name == "run_command" and "CommandLine" in tool_call.args:
+          cmd = tool_call.args["CommandLine"]
+          msg = f"🔧 도구 실행 중: run_command(CommandLine={repr(cmd)})"
+        else:
+          if args_str:
+            msg = f"🔧 도구 실행 중: {tool_call.name}({args_str})"
+          else:
+            msg = f"🔧 도구 실행 중: {tool_call.name}"
+
+        if skill_name:
+          if tool_call.name == "run_command" and "CommandLine" in tool_call.args:
+            cmd = tool_call.args["CommandLine"]
+            msg = f"🔧 [스킬: {skill_name}] run_command(CommandLine={repr(cmd)})"
+          else:
+            msg = f"🔧 [스킬: {skill_name}] {tool_call.name}({args_str})"
+
+        await on_status_update(msg)
+        return HookResult(allow=True)
+
+      @post_tool_call
+      async def post_tool_call_hook(tool_result):
+        """도구 실행 완료 후에 상태 업데이트 콜백을 호출합니다."""
+        msg = f"✅ 도구 완료: {tool_result.name}"
+        await on_status_update(msg)
+
+      hooks_list = [pre_tool_call_hook, post_tool_call_hook]
+
     config = LocalAgentConfig(
         model=model_name,
         tools=tools,
         policies=policies,
+        hooks=hooks_list,
         skills_paths=self.skills_paths,
     )
 

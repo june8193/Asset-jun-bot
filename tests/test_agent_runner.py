@@ -93,3 +93,56 @@ async def test_agent_runner_asset_client_error(mocker):
   response_text = await runner.ask("내 자산 어때?")
 
   assert response_text == "⚠️ API 서버에 연결할 수 없습니다."
+
+
+@pytest.mark.asyncio
+async def test_agent_runner_with_status_updates(mocker):
+  """AgentRunner가 훅 실행 시 on_status_update 콜백을 적절한 진행 상황 메시지와 함께 호출하는지 테스트합니다."""
+  mock_config = MagicMock()
+  mock_config.model_chat = "gemini-3.5-flash"
+
+  mock_agent = MagicMock()
+  mock_agent.__aenter__ = AsyncMock(return_value=mock_agent)
+  mock_agent.__aexit__ = AsyncMock(return_value=None)
+  mock_response = MagicMock()
+  mock_response.text = AsyncMock(return_value="성공적인 답변 결과입니다.")
+  mock_agent.chat = AsyncMock(return_value=mock_response)
+
+  mocker.patch("asset_jun_bot.agent_runner.Agent", return_value=mock_agent)
+  mock_local_config = mocker.patch("asset_jun_bot.agent_runner.LocalAgentConfig")
+
+  # 비동기 콜백 모킹
+  callback_calls = []
+  async def mock_callback(status: str):
+    callback_calls.append(status)
+
+  runner = AgentRunner(config=mock_config)
+  await runner.ask("자산 내역 알려줘", on_status_update=mock_callback)
+
+  # LocalAgentConfig에 전달된 hooks 확인
+  mock_local_config.assert_called_once()
+  kwargs = mock_local_config.call_args.kwargs
+  hooks = kwargs.get("hooks", [])
+  assert len(hooks) >= 2
+
+  # 훅 모킹 실행
+  from google.antigravity.types import ToolCall, ToolResult
+  from google.antigravity.hooks import HookContext
+
+  # pre_tool_call_decide 훅 실행 테스트
+  pre_hook = next((h for h in hooks if h.__class__.__name__ == "_FunctionHook" and h.f.__name__ == "pre_tool_call_hook"), None)
+  assert pre_hook is not None
+
+  tool_call = ToolCall(name="korea_daily_index_report", args={"date": "2026-06-21"}, canonical_path="korea-daily-index-report/korea_daily_index_report")
+  await pre_hook.run(HookContext(), tool_call)
+  assert any("korea_daily_index_report" in call for call in callback_calls)
+  assert any("korea-daily-index-report" in call for call in callback_calls)
+
+  # post_tool_call 훅 실행 테스트
+  post_hook = next((h for h in hooks if h.__class__.__name__ == "_FunctionHook" and h.f.__name__ == "post_tool_call_hook"), None)
+  assert post_hook is not None
+
+  tool_result = ToolResult(name="korea_daily_index_report")
+  await post_hook.run(HookContext(), tool_result)
+  assert any("완료" in call for call in callback_calls)
+
