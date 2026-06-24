@@ -31,10 +31,15 @@ description: Generate, save, and convert the daily S&P 500/NASDAQ/DOW index stat
 ### 2단계: 마크다운 파일 생성 및 저장
 - [ ] **저장 경로 확인**: 저장할 디렉터리 경로를 획득하기 위해 쉘 명령어 실행 도구(`run_command` 등)를 통해 `uv run python scripts/get_storage_dir.py` 명령을 실행하여 환경 변수 값을 확인합니다.
 - [ ] **마크다운 파일 생성 및 저장**: 파일 쓰기 도구(`write_to_file` 등)를 호출하여 `STORAGE_DIR/reports/us_market/US_market_daily_report_YYYYMMDD.md` (YYYYMMDD는 오늘 날짜) 경로에 아래 템플릿 규격에 맞춘 새로운 마크다운 파일을 직접 생성하여 저장합니다.
+  - **시간 정보 산출 기준**:
+    - **작성 시간 (한국)**: 보고서를 생성하는 현재 시점의 한국 표준시(KST) 기준 날짜 및 요일을 표시합니다. (예: `2026-06-22 (월)`)
+    - **분석 시간 (미국)**: 보고서를 작성하는 시점의 미국 동부 표준시(EST/EDT) 기준 현지 날짜 및 요일을 표시합니다. (예: 한국 시간 6/22(월) 아침에 작성 시, 미국 시간 6/21(일)로 기입)
   - **보고서 템플릿**:
     - **평일 (is_holiday=false)인 경우**:
       ```markdown
-      # 📢 미국 주식 시장 일일 현황 보고서 (YYYY-MM-DD)
+      # 📢 미국 주식 시장 일일 현황 보고서
+      - **작성 시간 (한국)**: YYYY-MM-DD (요일)
+      - **분석 시간 (미국)**: YYYY-MM-DD (요일)
       ---
 
       ### 📊 지수 현황
@@ -56,7 +61,9 @@ description: Generate, save, and convert the daily S&P 500/NASDAQ/DOW index stat
       ```
     - **휴장일 (is_holiday=true)인 경우**:
       ```markdown
-      # 📢 미국 주식 시장 일일 현황 보고서 (YYYY-MM-DD)
+      # 📢 미국 주식 시장 일일 현황 보고서
+      - **작성 시간 (한국)**: YYYY-MM-DD (요일)
+      - **분석 시간 (미국)**: YYYY-MM-DD (요일)
       ---
 
       ### 📊 지수 현황
