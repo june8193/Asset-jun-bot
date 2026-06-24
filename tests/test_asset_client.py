@@ -416,5 +416,51 @@ async def test_resolve_redirect_url_failure():
   assert result == mock_redirect_url
 
 
+@pytest.mark.asyncio
+@respx.mock
+async def test_check_market_holiday_no_date_kr_success():
+  """date 파라미터가 없을 때 KR 국가 코드에 대해 타임존이 적용되어 동작하는지 테스트합니다."""
+  mock_data = {
+      "date": "2026-06-22",
+      "country": "KR",
+      "is_holiday": False,
+      "description": "영업일"
+  }
+  respx.get("http://mock-asset-server/api/market/holiday?country=KR").mock(
+      return_value=Response(200, json=mock_data)
+  )
+
+  result = await check_market_holiday("", country="KR")
+  assert isinstance(result, MarketHolidayResponse)
+  assert result.date == "2026-06-22"
+  assert result.country == "KR"
+  assert result.is_holiday is False
+  assert result.description == "영업일"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_check_market_holiday_no_date_us_success():
+  """date 파라미터가 없을 때 US 국가 코드에 대해 타임존이 적용되어 동작하는지 테스트합니다."""
+  mock_data = {
+      "date": "2026-06-21",
+      "country": "US",
+      "is_holiday": True,
+      "description": "주말"
+  }
+  respx.get("http://mock-asset-server/api/market/holiday?country=US").mock(
+      return_value=Response(200, json=mock_data)
+  )
+
+  result = await check_market_holiday("", country="US")
+  assert isinstance(result, MarketHolidayResponse)
+  assert result.date == "2026-06-21"
+  assert result.country == "US"
+  assert result.is_holiday is True
+  assert result.description == "주말"
+
+
+
+
 
 

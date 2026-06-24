@@ -18,7 +18,7 @@ description: Generate, save, and convert the daily KOSPI/KOSDAQ index status rep
 에이전트는 아래 체크리스트와 가이드에 따라 필요한 도구를 직접 호출하여 작업을 수행합니다.
 
 ### 0단계: 주말 및 휴장일 여부 확인 (Pre-check)
-- [ ] **휴장일 판정 스크립트 실행**: 쉘 명령어 실행 도구(`run_command` 등)를 통해 `uv run python scripts/query_market.py --action holiday` 명령을 실행하여 한국 시장 휴장일 정보(DATE, COUNTRY, IS_HOLIDAY, DESCRIPTION)를 확인합니다.
+- [ ] **휴장일 판정 스크립트 실행**: 쉘 명령어 실행 도구(`run_command` 등)를 통해 `uv run python scripts/query_market.py --action holiday` 명령을 실행하여 한국 시장 휴장일 정보(DATE, COUNTRY, IS_HOLIDAY, DESCRIPTION)를 확인합니다. (※ `--date`를 별도로 입력하지 않고 호출하면, API 서버 측에서 한국 표준시(KST) 기준으로 당일 날짜를 자동 판정하여 처리합니다.)
 - [ ] **휴장일 상태 정보 보존**: `IS_HOLIDAY` 값과 `DESCRIPTION` 값을 기억하여 이후 단계에서 분기 처리에 활용합니다. (주말이나 휴장일이라 하더라도 작업을 중단하지 않고 다음 단계를 계속 진행합니다.)
 
 ### 1단계: 지수 데이터 및 뉴스 수집
@@ -38,6 +38,7 @@ description: Generate, save, and convert the daily KOSPI/KOSDAQ index status rep
 ### 2단계: 마크다운 파일 생성 및 저장
 - [ ] **저장 경로 확인**: 저장할 디렉터리 경로를 획득하기 위해 쉘 명령어 실행 도구(`run_command` 등)를 통해 `uv run python scripts/get_storage_dir.py` 명령을 실행하여 환경 변수 값을 확인합니다.
 - [ ] **마크다운 파일 생성 및 저장**: 파일 쓰기 도구(`write_to_file` 등)를 호출하여 `STORAGE_DIR/reports/korea_market/Korea_market_daily_report_YYYYMMDD.md` (YYYYMMDD는 오늘 날짜) 경로에 아래 템플릿 규격에 맞춘 새로운 마크다운 파일을 직접 생성하여 저장합니다.
+  - ⚠️ **지수 등락률 표기 규칙**: 지수 등락률은 상승 시 반드시 `+` 기호를 앞에 붙여 표기해야 합니다. (예: `+1.23%`, `-0.45%` 등. 단, 보합일 경우 `0.00%`로 표기)
   - **보고서 템플릿**:
     - **평일 (is_holiday=false)인 경우**:
       ```markdown
