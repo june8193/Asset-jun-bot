@@ -8,6 +8,7 @@ from asset_jun_bot.asset_client import (
     get_asset_summary,
     get_asset_ratios,
     get_watchlist_prices,
+    get_portfolio_status,
     AssetClientError,
 )
 
@@ -17,7 +18,7 @@ async def main_async():
   parser.add_argument(
       "--action",
       required=True,
-      choices=["summary", "ratios", "watchlist"],
+      choices=["summary", "ratios", "watchlist", "portfolio"],
       help="Action to perform",
   )
   parser.add_argument(
@@ -25,6 +26,11 @@ async def main_async():
       default="KR",
       choices=["KR", "US"],
       help="Country for watchlist inquiry",
+  )
+  parser.add_argument(
+      "--date",
+      default=None,
+      help="Inquiry standard date (YYYY-MM-DD)",
   )
 
   args = parser.parse_args()
@@ -38,6 +44,9 @@ async def main_async():
       print(res.model_dump_json(indent=2))
     elif args.action == "watchlist":
       res = await get_watchlist_prices(country=args.country)
+      print(res.model_dump_json(indent=2))
+    elif args.action == "portfolio":
+      res = await get_portfolio_status(date=args.date)
       print(res.model_dump_json(indent=2))
   except AssetClientError as err:
     print(f"API Error: {err}", file=sys.stderr)

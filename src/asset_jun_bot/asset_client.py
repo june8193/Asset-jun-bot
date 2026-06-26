@@ -157,6 +157,47 @@ class StockPricesResponse(BaseModel):
   prices: List[StockPriceItem] = Field(..., description="일자별 주가 목록")
 
 
+class PortfolioHoldingItem(BaseModel):
+  """포트폴리오 내 개별 보유 자산 정보 모델입니다.
+
+  Attributes:
+      ticker: 종목코드 또는 티커
+      name: 종목명
+      major_category: 자산 대분류 (예: 주식, 현금 등)
+      sub_category: 자산 소분류 (예: 대형주, 배당주 등)
+      country: 국가 구분 (KR/US)
+      quantity: 보유 수량
+      current_price: 현재 가격
+      valuation: 평가액 (해당 통화 기준)
+      valuation_krw: 원화 환산 평가액
+  """
+  ticker: str = Field(..., description="종목코드 또는 티커")
+  name: str = Field(..., description="종목명")
+  major_category: str = Field(..., description="자산 대분류")
+  sub_category: str = Field(..., description="자산 소분류")
+  country: str = Field(..., description="국가 구분 (KR/US)")
+  quantity: float = Field(..., description="보유 수량")
+  current_price: float = Field(..., description="현재 가격")
+  valuation: float = Field(..., description="평가액 (해당 통화)")
+  valuation_krw: float = Field(..., description="원화 환산 평가액 (KRW)")
+
+
+class PortfolioStatusResponse(BaseModel):
+  """포트폴리오 자산 구성 및 보유 종목 현황 응답 Pydantic 모델입니다.
+
+  Attributes:
+      total_valuation_krw: 총 평가자산 (원화 환산)
+      cash_balances: 예수금 잔고 (통화별 매핑)
+      exchange_rate: 적용 기준 환율
+      holdings: 보유 종목 목록
+  """
+  total_valuation_krw: float = Field(..., description="총 평가자산 (KRW)")
+  cash_balances: Dict[str, float] = Field(..., description="예수금 잔고 (통화별 매핑)")
+  exchange_rate: float = Field(..., description="적용 기준 환율")
+  holdings: List[PortfolioHoldingItem] = Field(..., description="보유 종목 목록")
+
+
+
 
 
 async def get_asset_summary() -> AssetSummaryResponse:
@@ -612,6 +653,70 @@ async def get_stock_prices(
     ) from exc
   except Exception as exc:
     raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
+
+
+async def get_portfolio_status(date: str | None = None) -> PortfolioStatusResponse:
+  """AssetManager API로부터 포트폴리오 상태(보유 자산 및 예수금 현황)를 조회하여 Pydantic 모델로 반환합니다.
+
+  Args:
+      date: 조회 기준일 ("YYYY-MM-DD", 생략 시 오늘)
+
+  Returns:
+      PortfolioStatusResponse: 포트폴리오 상세 데이터를 담은 Pydantic 객체
+
+  Raises:
+      AssetClientError: 설정 로드 실패, HTTP 호출 실패 또는 네트워크 오류 발생 시
+  """
+  try:
+    config = Config.load()
+  except ValueError as err:
+    raise AssetClientError(f"설정 로드 중 오류 발생: {err}") from err
+
+  url = f"{config.asset_manager_api_url}/api/portfolio/status"
+  params = {}
+  if date:
+    params["date"] = date
+
+  try:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+      response = await client.get(url, params=params)
+      response.raise_for_status()
+      data = response.json()
+
+      holdings = []
+      for item in data.get("holdings", []):
+        holdings.append(
+            PortfolioHoldingItem(
+                ticker=item.get("ticker", ""),
+                name=item.get("name", ""),
+                major_category=item.get("major_category", ""),
+                sub_category=item.get("sub_category", ""),
+                country=item.get("country", ""),
+                quantity=item.get("quantity", 0.0),
+                current_price=item.get("current_price", 0.0),
+                valuation=item.get("valuation", 0.0),
+                valuation_krw=item.get("valuation_krw", 0.0),
+            )
+        )
+
+      return PortfolioStatusResponse(
+          total_valuation_krw=data.get("total_valuation_krw", 0.0),
+          cash_balances=data.get("cash_balances", {}),
+          exchange_rate=data.get("exchange_rate", 1.0),
+          holdings=holdings,
+      )
+
+  except httpx.HTTPStatusError as exc:
+    raise AssetClientError(
+        f"AssetManager API 호출 실패 (HTTP 오류 코드: {exc.response.status_code})"
+    ) from exc
+  except httpx.RequestError as exc:
+    raise AssetClientError(
+        f"AssetManager API 서버 연결 네트워크 오류: {exc}"
+    ) from exc
+  except Exception as exc:
+    raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
+
 
 
 

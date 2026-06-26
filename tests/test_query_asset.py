@@ -13,6 +13,7 @@ from asset_jun_bot.asset_client import (
     AssetSummaryResponse,
     AssetRatiosResponse,
     WatchlistPricesResponse,
+    PortfolioStatusResponse,
     AssetClientError,
 )
 
@@ -78,3 +79,45 @@ def test_query_asset_api_error(capsys):
 
     captured = capsys.readouterr()
     assert "API Error: Connection Failed" in captured.err
+
+
+def test_query_asset_portfolio_success(capsys):
+  """--action portfolio가 주어졌을 때 포트폴리오 자산 정보가 JSON으로 정상 출력되는지 테스트합니다."""
+  mock_response = PortfolioStatusResponse(
+      total_valuation_krw=150000000.0,
+      cash_balances={"KRW": 10000000.0, "USD": 5000.0},
+      exchange_rate=1350.0,
+      holdings=[]
+  )
+
+  with patch("scripts.query_asset.get_portfolio_status", new_callable=AsyncMock) as mock_get:
+    mock_get.return_value = mock_response
+
+    with patch("sys.argv", ["query_asset.py", "--action", "portfolio"]):
+      main()
+
+    captured = capsys.readouterr()
+    assert '"total_valuation_krw": 150000000.0' in captured.out
+    assert '"cash_balances"' in captured.out
+    assert '"holdings"' in captured.out
+
+
+def test_query_asset_portfolio_with_date_success(capsys):
+  """--action portfolio와 --date가 주어졌을 때 해당 날짜의 포트폴리오 정보가 정상 출력되는지 테스트합니다."""
+  mock_response = PortfolioStatusResponse(
+      total_valuation_krw=140000000.0,
+      cash_balances={"KRW": 9000000.0, "USD": 4500.0},
+      exchange_rate=1340.0,
+      holdings=[]
+  )
+
+  with patch("scripts.query_asset.get_portfolio_status", new_callable=AsyncMock) as mock_get:
+    mock_get.return_value = mock_response
+
+    with patch("sys.argv", ["query_asset.py", "--action", "portfolio", "--date", "2026-06-01"]):
+      main()
+
+    mock_get.assert_called_once_with(date="2026-06-01")
+    captured = capsys.readouterr()
+    assert '"total_valuation_krw": 140000000.0' in captured.out
+

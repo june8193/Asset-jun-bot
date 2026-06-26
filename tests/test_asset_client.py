@@ -15,6 +15,7 @@ from asset_jun_bot.asset_client import (
     resolve_redirect_url,
     get_market_history,
     get_stock_prices,
+    get_portfolio_status,
     AssetSummaryResponse,
     AssetRatiosResponse,
     WatchlistPricesResponse,
@@ -23,6 +24,8 @@ from asset_jun_bot.asset_client import (
     MarketHistoryItem,
     StockPricesResponse,
     StockPriceItem,
+    PortfolioStatusResponse,
+    PortfolioHoldingItem,
     AssetClientError,
 )
 
@@ -538,6 +541,92 @@ async def test_get_stock_prices_http_error():
 
   with pytest.raises(AssetClientError):
     await get_stock_prices(ticker="005930", start_date="2026-06-25")
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_portfolio_status_success():
+  """오늘 기준의 포트폴리오를 성공적으로 반환하는지 테스트합니다."""
+  mock_data = {
+      "total_valuation_krw": 150000000.0,
+      "cash_balances": {"KRW": 10000000.0, "USD": 5000.0},
+      "exchange_rate": 1350.0,
+      "holdings": [
+          {
+              "ticker": "005930",
+              "name": "삼성전자",
+              "major_category": "주식",
+              "sub_category": "대형주",
+              "country": "KR",
+              "quantity": 100.0,
+              "current_price": 75000.0,
+              "valuation": 7500000.0,
+              "valuation_krw": 7500000.0,
+          }
+      ],
+  }
+  respx.get("http://mock-asset-server/api/portfolio/status").mock(
+      return_value=Response(200, json=mock_data)
+  )
+
+  result = await get_portfolio_status()
+  assert isinstance(result, PortfolioStatusResponse)
+  assert result.total_valuation_krw == 150000000.0
+  assert result.cash_balances["KRW"] == 10000000.0
+  assert result.cash_balances["USD"] == 5000.0
+  assert result.exchange_rate == 1350.0
+  assert len(result.holdings) == 1
+  assert isinstance(result.holdings[0], PortfolioHoldingItem)
+  assert result.holdings[0].ticker == "005930"
+  assert result.holdings[0].name == "삼성전자"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_portfolio_status_with_date_success():
+  """특정 과거 날짜를 명시하여 호출했을 때 성공하는지 테스트합니다."""
+  mock_data = {
+      "total_valuation_krw": 140000000.0,
+      "cash_balances": {"KRW": 9000000.0, "USD": 4500.0},
+      "exchange_rate": 1340.0,
+      "holdings": [],
+  }
+  respx.get("http://mock-asset-server/api/portfolio/status?date=2026-06-01").mock(
+      return_value=Response(200, json=mock_data)
+  )
+
+  result = await get_portfolio_status(date="2026-06-01")
+  assert isinstance(result, PortfolioStatusResponse)
+  assert result.total_valuation_krw == 140000000.0
+  assert result.exchange_rate == 1340.0
+  assert len(result.holdings) == 0
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_portfolio_status_http_error():
+  """API 호출 시 HTTP 에러가 발생했을 때 AssetClientError 예외를 발생시키는지 테스트합니다."""
+  respx.get("http://mock-asset-server/api/portfolio/status").mock(
+      return_value=Response(500)
+  )
+
+  with pytest.raises(AssetClientError) as exc_info:
+    await get_portfolio_status()
+  assert "HTTP 오류" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_portfolio_status_network_error():
+  """API 서버 연결 실패 시 AssetClientError 예외를 발생시키는지 테스트합니다."""
+  respx.get("http://mock-asset-server/api/portfolio/status").mock(
+      side_effect=RequestError("Connection refused")
+  )
+
+  with pytest.raises(AssetClientError) as exc_info:
+    await get_portfolio_status()
+  assert "네트워크 오류" in str(exc_info.value) or "연결" in str(exc_info.value)
+
 
 
 
