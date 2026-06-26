@@ -125,7 +125,17 @@ async def test_get_asset_ratios_success():
               "diff_amt": 10000000.0
           }
       ],
-      "sub_results": []
+      "sub_results": [
+          {
+              "category": "미국 대형주",
+              "parent_category": "주식",
+              "current_amt": 30000000.0,
+              "current_ratio": 50.0,
+              "target_percentage": 50.0,
+              "target_amt": 35000000.0,
+              "diff_amt": 5000000.0
+          }
+      ]
   }
   respx.get("http://mock-asset-server/api/ratios/rebalancing").mock(
       return_value=Response(200, json=mock_data)
@@ -133,13 +143,34 @@ async def test_get_asset_ratios_success():
 
   result = await get_asset_ratios()
   assert isinstance(result, AssetRatiosResponse)
+  assert result.total_valuation == 100000000.0
+  assert result.total_target == 100000000.0
+  assert result.additional_cash == 0.0
+
   assert len(result.major_results) == 2
   assert result.major_results[0].category == "현금"
   assert result.major_results[0].current_ratio == 40.0
   assert result.major_results[0].current_amt == 40000000.0
+  assert result.major_results[0].target_percentage == 30.0
+  assert result.major_results[0].target_amt == 30000000.0
+  assert result.major_results[0].diff_amt == -10000000.0
+
   assert result.major_results[1].category == "주식"
   assert result.major_results[1].current_ratio == 60.0
   assert result.major_results[1].current_amt == 60000000.0
+  assert result.major_results[1].target_percentage == 70.0
+  assert result.major_results[1].target_amt == 70000000.0
+  assert result.major_results[1].diff_amt == 10000000.0
+
+  assert len(result.sub_results) == 1
+  assert result.sub_results[0].category == "미국 대형주"
+  assert result.sub_results[0].parent_category == "주식"
+  assert result.sub_results[0].current_amt == 30000000.0
+  assert result.sub_results[0].current_ratio == 50.0
+  assert result.sub_results[0].target_percentage == 50.0
+  assert result.sub_results[0].target_amt == 35000000.0
+  assert result.sub_results[0].diff_amt == 5000000.0
+
 
 
 @pytest.mark.asyncio

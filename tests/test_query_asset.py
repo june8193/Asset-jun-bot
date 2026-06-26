@@ -42,7 +42,13 @@ def test_query_asset_summary_success(capsys):
 
 def test_query_asset_ratios_success(capsys):
   """--action ratios가 주어졌을 때 자산 비중 정보가 JSON으로 정상 출력되는지 테스트합니다."""
-  mock_response = AssetRatiosResponse(major_results=[])
+  mock_response = AssetRatiosResponse(
+      total_valuation=100000000.0,
+      total_target=100000000.0,
+      additional_cash=0.0,
+      major_results=[],
+      sub_results=[]
+  )
 
   with patch("scripts.query_asset.get_asset_ratios", new_callable=AsyncMock) as mock_get:
     mock_get.return_value = mock_response
@@ -52,6 +58,8 @@ def test_query_asset_ratios_success(capsys):
 
     captured = capsys.readouterr()
     assert '"major_results"' in captured.out
+    assert '"total_valuation": 100000000.0' in captured.out
+
 
 
 def test_query_asset_watchlist_success(capsys):

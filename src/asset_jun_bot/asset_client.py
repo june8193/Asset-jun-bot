@@ -36,25 +36,41 @@ class AssetSummaryResponse(BaseModel):
 
 
 class AssetRatioItem(BaseModel):
-  """자산 대분류별 세부 비중 정보 모델입니다.
+  """자산 분류별 세부 비중 및 리밸런싱 정보 모델입니다.
 
   Attributes:
-      category: 자산 대분류 명칭 (예: 주식, 현금 등)
+      category: 자산 분류 명칭 (대분류 또는 소분류)
+      parent_category: 상위 대분류 명칭 (소분류인 경우)
       current_amt: 현재 평가액
       current_ratio: 현재 비중 (%)
+      target_percentage: 목표 비중 (%)
+      target_amt: 목표 평가액 (KRW)
+      diff_amt: 목표 비중 대비 차액 (조정 필요 금액, KRW)
   """
-  category: str = Field(..., description="자산 대분류 명칭")
+  category: str = Field(..., description="자산 분류 명칭")
+  parent_category: str | None = Field(None, description="상위 대분류 명칭 (소분류인 경우)")
   current_amt: float = Field(..., description="현재 평가액 (KRW)")
   current_ratio: float = Field(..., description="현재 비중 (%)")
+  target_percentage: float = Field(..., description="목표 비중 (%)")
+  target_amt: float = Field(..., description="목표 평가액 (KRW)")
+  diff_amt: float = Field(..., description="목표 비중 대비 차액 (조정 필요 금액, KRW)")
 
 
 class AssetRatiosResponse(BaseModel):
-  """자산군별 비중 현황 응답 Pydantic 모델입니다.
+  """자산군별 비중 현황 및 리밸런싱 가이드 응답 Pydantic 모델입니다.
 
   Attributes:
-      major_results: 자산 대분류별 비중 목록
+      total_valuation: 현재 총 평가액 (KRW)
+      total_target: 목표 총액 (KRW)
+      additional_cash: 추가 투자금 (KRW)
+      major_results: 자산 대분류별 비중 및 리밸런싱 결과 목록
+      sub_results: 자산 소분류별 비중 및 리밸런싱 결과 목록
   """
+  total_valuation: float = Field(..., description="현재 총 평가액 (KRW)")
+  total_target: float = Field(..., description="목표 총액 (KRW)")
+  additional_cash: float = Field(..., description="추가 투자금 (KRW)")
   major_results: List[AssetRatioItem] = Field(..., description="자산 대분류별 비중 목록")
+  sub_results: List[AssetRatioItem] = Field(..., description="자산 소분류별 비중 목록")
 
 
 class WatchlistItemPrice(BaseModel):
@@ -253,10 +269,10 @@ async def get_asset_summary() -> AssetSummaryResponse:
 
 
 async def get_asset_ratios() -> AssetRatiosResponse:
-  """AssetManager API로부터 자산군별 백분율 비중 정보를 조회하여 Pydantic 모델로 반환합니다.
+  """AssetManager API로부터 자산군별 백분율 비중 및 리밸런싱 정보를 조회하여 Pydantic 모델로 반환합니다.
 
   Returns:
-      AssetRatiosResponse: 자산군별 백분율 비중 현황을 담은 Pydantic 객체
+      AssetRatiosResponse: 자산군별 백분율 비중 및 리밸런싱 현황을 담은 Pydantic 객체
 
   Raises:
       AssetClientError: 설정 로드 실패, HTTP 호출 실패 또는 네트워크 오류 발생 시
@@ -275,17 +291,42 @@ async def get_asset_ratios() -> AssetRatiosResponse:
       data = response.json()
 
       major_results = data.get("major_results", [])
-      items = []
+      major_items = []
       for item in major_results:
-        items.append(
+        major_items.append(
             AssetRatioItem(
                 category=item.get("category", "미분류"),
+                parent_category=None,
                 current_amt=item.get("current_amt", 0.0),
                 current_ratio=item.get("current_ratio", 0.0),
+                target_percentage=item.get("target_percentage", 0.0),
+                target_amt=item.get("target_amt", 0.0),
+                diff_amt=item.get("diff_amt", 0.0),
             )
         )
 
-      return AssetRatiosResponse(major_results=items)
+      sub_results = data.get("sub_results", [])
+      sub_items = []
+      for item in sub_results:
+        sub_items.append(
+            AssetRatioItem(
+                category=item.get("category", "미분류"),
+                parent_category=item.get("parent_category"),
+                current_amt=item.get("current_amt", 0.0),
+                current_ratio=item.get("current_ratio", 0.0),
+                target_percentage=item.get("target_percentage", 0.0),
+                target_amt=item.get("target_amt", 0.0),
+                diff_amt=item.get("diff_amt", 0.0),
+            )
+        )
+
+      return AssetRatiosResponse(
+          total_valuation=data.get("total_valuation", 0.0),
+          total_target=data.get("total_target", 0.0),
+          additional_cash=data.get("additional_cash", 0.0),
+          major_results=major_items,
+          sub_results=sub_items,
+      )
 
   except httpx.HTTPStatusError as exc:
     raise AssetClientError(
