@@ -13,11 +13,16 @@ from asset_jun_bot.asset_client import (
     check_market_holiday,
     send_telegram_message,
     resolve_redirect_url,
+    get_market_history,
+    get_stock_prices,
     AssetSummaryResponse,
     AssetRatiosResponse,
     WatchlistPricesResponse,
     MarketIndicesResponse,
     MarketHolidayResponse,
+    MarketHistoryItem,
+    StockPricesResponse,
+    StockPriceItem,
     AssetClientError,
 )
 
@@ -458,6 +463,82 @@ async def test_check_market_holiday_no_date_us_success():
   assert result.country == "US"
   assert result.is_holiday is True
   assert result.description == "주말"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_market_history_success():
+  """지수 과거 시계열 조회 API가 성공할 때 올바른 결과를 반환하는지 테스트합니다."""
+  mock_data = {
+      "^KS11": [
+          {"date": "2026-06-25", "close_price": 2750.0},
+          {"date": "2026-06-26", "close_price": 2760.0}
+      ]
+  }
+  respx.get("http://mock-asset-server/api/market/history?tickers=%5EKS11&start_date=2026-06-25").mock(
+      return_value=Response(200, json=mock_data)
+  )
+
+  result = await get_market_history(tickers=["^KS11"], start_date="2026-06-25")
+  assert isinstance(result, dict)
+  assert "^KS11" in result
+  assert len(result["^KS11"]) == 2
+  assert isinstance(result["^KS11"][0], MarketHistoryItem)
+  assert result["^KS11"][0].date == "2026-06-25"
+  assert result["^KS11"][0].close_price == 2750.0
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_market_history_http_error():
+  """지수 과거 시계열 조회 API 호출 실패 시 AssetClientError가 발생하는지 테스트합니다."""
+  respx.get("http://mock-asset-server/api/market/history?tickers=%5EKS11").mock(
+      return_value=Response(500)
+  )
+
+  with pytest.raises(AssetClientError):
+    await get_market_history(tickers=["^KS11"])
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_stock_prices_success():
+  """주식 가격 조회 API가 성공할 때 올바른 Pydantic 응답 모델을 반환하는지 테스트합니다."""
+  mock_data = {
+      "ticker": "005930",
+      "name": "삼성전자",
+      "market": "KOSPI",
+      "prices": [
+          {"date": "2026-06-25", "close_price": 75000.0},
+          {"date": "2026-06-26", "close_price": 75200.0}
+      ]
+  }
+  respx.get("http://mock-asset-server/api/stocks/prices?ticker=005930&start_date=2026-06-25").mock(
+      return_value=Response(200, json=mock_data)
+  )
+
+  result = await get_stock_prices(ticker="005930", start_date="2026-06-25")
+  assert isinstance(result, StockPricesResponse)
+  assert result.ticker == "005930"
+  assert result.name == "삼성전자"
+  assert result.market == "KOSPI"
+  assert len(result.prices) == 2
+  assert isinstance(result.prices[0], StockPriceItem)
+  assert result.prices[0].date == "2026-06-25"
+  assert result.prices[0].close_price == 75000.0
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_stock_prices_http_error():
+  """주식 가격 조회 API 호출 실패 시 AssetClientError가 발생하는지 테스트합니다."""
+  respx.get("http://mock-asset-server/api/stocks/prices?ticker=005930&start_date=2026-06-25").mock(
+      return_value=Response(500)
+  )
+
+  with pytest.raises(AssetClientError):
+    await get_stock_prices(ticker="005930", start_date="2026-06-25")
+
 
 
 

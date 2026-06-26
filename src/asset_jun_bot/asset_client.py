@@ -5,7 +5,7 @@
 반환하며, 통신 실패 시 명시적인 AssetClientError 예외를 발생시킵니다.
 """
 
-from typing import List
+from typing import List, Dict
 import httpx
 from pydantic import BaseModel, Field
 from .config import Config
@@ -118,6 +118,43 @@ class MarketHolidayResponse(BaseModel):
   country: str = Field(..., description="국가 코드")
   is_holiday: bool = Field(..., description="휴장일 여부")
   description: str = Field(..., description="휴장 사유")
+
+
+class MarketHistoryItem(BaseModel):
+  """시장 지수 일자별 가격 정보를 나타내는 Pydantic 모델입니다.
+
+  Attributes:
+      date: 날짜 (YYYY-MM-DD)
+      close_price: 종가 또는 실시간 현재가
+  """
+  date: str = Field(..., description="날짜 (YYYY-MM-DD)")
+  close_price: float = Field(..., description="종가 또는 실시간 현재가")
+
+
+class StockPriceItem(BaseModel):
+  """주식의 일자별 가격 정보를 나타내는 Pydantic 모델입니다.
+
+  Attributes:
+      date: 날짜 (YYYY-MM-DD)
+      close_price: 종가 또는 실시간 현재가
+  """
+  date: str = Field(..., description="날짜 (YYYY-MM-DD)")
+  close_price: float = Field(..., description="종가 또는 실시간 현재가")
+
+
+class StockPricesResponse(BaseModel):
+  """주식 가격 조회 응답 Pydantic 모델입니다.
+
+  Attributes:
+      ticker: 종목코드 또는 티커
+      name: 종목명
+      market: 상장 시장 (KOSPI, KOSDAQ, US 등)
+      prices: 일자별 주가 목록
+  """
+  ticker: str = Field(..., description="종목코드 또는 티커")
+  name: str = Field(..., description="종목명")
+  market: str = Field(..., description="상장 시장 (KOSPI, KOSDAQ, US 등)")
+  prices: List[StockPriceItem] = Field(..., description="일자별 주가 목록")
 
 
 
@@ -457,6 +494,124 @@ async def resolve_redirect_url(url: str) -> str:
   except Exception:
     # 네트워크 에러 또는 타임아웃 발생 시 입력된 원본 URL을 폴백으로 반환합니다.
     return url
+
+
+async def get_market_history(
+    tickers: List[str],
+    start_date: str | None = None,
+    end_date: str | None = None
+) -> Dict[str, List[MarketHistoryItem]]:
+  """AssetManager API로부터 지정된 지수 티커들의 기간별 역사적 가격 및 실시간 현재가를 통합 조회합니다.
+
+  Args:
+      tickers: 조회할 지수 티커 리스트 (예: ["^KS11", "^GSPC"])
+      start_date: 조회 시작일 ("YYYY-MM-DD", 생략 시 API 기본값인 30일 전)
+      end_date: 조회 종료일 ("YYYY-MM-DD", 생략 시 API 기본값인 오늘)
+
+  Returns:
+      Dict[str, List[MarketHistoryItem]]: 티커별 일자별 지수 데이터 매핑 딕셔너리
+
+  Raises:
+      AssetClientError: 설정 로드 실패, HTTP 호출 실패 또는 네트워크 오류 발생 시
+  """
+  try:
+    config = Config.load()
+  except ValueError as err:
+    raise AssetClientError(f"설정 로드 중 오류 발생: {err}") from err
+
+  url = f"{config.asset_manager_api_url}/api/market/history"
+  params = {"tickers": ",".join(tickers)}
+  if start_date:
+    params["start_date"] = start_date
+  if end_date:
+    params["end_date"] = end_date
+
+  try:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+      response = await client.get(url, params=params)
+      response.raise_for_status()
+      data = response.json()
+
+      results = {}
+      for ticker, items in data.items():
+        results[ticker] = [
+            MarketHistoryItem(
+                date=item.get("date", ""),
+                close_price=item.get("close_price", 0.0)
+            ) for item in items
+        ]
+      return results
+
+  except httpx.HTTPStatusError as exc:
+    raise AssetClientError(
+        f"AssetManager API 호출 실패 (HTTP 오류 코드: {exc.response.status_code})"
+    ) from exc
+  except httpx.RequestError as exc:
+    raise AssetClientError(
+        f"AssetManager API 서버 연결 네트워크 오류: {exc}"
+    ) from exc
+  except Exception as exc:
+    raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
+
+
+async def get_stock_prices(
+    ticker: str,
+    start_date: str,
+    end_date: str | None = None
+) -> StockPricesResponse:
+  """AssetManager API로부터 특정 종목의 현재 및 과거 주가 데이터를 조회하여 Pydantic 모델로 반환합니다.
+
+  Args:
+      ticker: 종목코드 또는 티커 (예: "005930", "AAPL")
+      start_date: 조회 시작일 ("YYYY-MM-DD")
+      end_date: 조회 종료일 ("YYYY-MM-DD", 생략 시 API 기본값인 오늘)
+
+  Returns:
+      StockPricesResponse: 종목 정보 및 일자별 주가 데이터를 담은 Pydantic 객체
+
+  Raises:
+      AssetClientError: 설정 로드 실패, HTTP 호출 실패 또는 네트워크 오류 발생 시
+  """
+  try:
+    config = Config.load()
+  except ValueError as err:
+    raise AssetClientError(f"설정 로드 중 오류 발생: {err}") from err
+
+  url = f"{config.asset_manager_api_url}/api/stocks/prices"
+  params = {"ticker": ticker, "start_date": start_date}
+  if end_date:
+    params["end_date"] = end_date
+
+  try:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+      response = await client.get(url, params=params)
+      response.raise_for_status()
+      data = response.json()
+
+      prices = [
+          StockPriceItem(
+              date=item.get("date", ""),
+              close_price=item.get("close_price", 0.0)
+          ) for item in data.get("prices", [])
+      ]
+
+      return StockPricesResponse(
+          ticker=data.get("ticker", ticker),
+          name=data.get("name", ""),
+          market=data.get("market", ""),
+          prices=prices
+      )
+
+  except httpx.HTTPStatusError as exc:
+    raise AssetClientError(
+        f"AssetManager API 호출 실패 (HTTP 오류 코드: {exc.response.status_code})"
+    ) from exc
+  except httpx.RequestError as exc:
+    raise AssetClientError(
+        f"AssetManager API 서버 연결 네트워크 오류: {exc}"
+    ) from exc
+  except Exception as exc:
+    raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
 
 
 
