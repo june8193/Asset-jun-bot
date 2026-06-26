@@ -58,6 +58,12 @@ async def run_get_history(tickers_str: str, start_date: str | None, end_date: st
 
 
 def main():
+  # Windows 환경이며, pytest 테스트 실행 환경이 아닌 경우에만 표준 출력 인코딩을 UTF-8로 강제 설정합니다.
+  if sys.platform == "win32" and "pytest" not in sys.modules:
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
+
   parser = argparse.ArgumentParser(description="Query market holiday status and indices.")
   parser.add_argument(
       "--action",
