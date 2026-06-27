@@ -18,6 +18,8 @@ from asset_jun_bot.asset_client import (
     get_portfolio_status,
     get_yearly_stats,
     get_daily_stats,
+    get_snapshots,
+    get_transactions,
     AssetSummaryResponse,
     AssetRatiosResponse,
     WatchlistPricesResponse,
@@ -32,6 +34,10 @@ from asset_jun_bot.asset_client import (
     DailyStatsResponse,
     YearlyStatItem,
     DailyStatItem,
+    SnapshotItem,
+    SnapshotsResponse,
+    TransactionItem,
+    TransactionsResponse,
     AssetClientError,
 )
 
@@ -730,6 +736,140 @@ async def test_get_daily_stats_with_params_success():
   result = await get_daily_stats(start_date="2026-06-01", end_date="2026-06-27", all_data=True)
   assert isinstance(result, DailyStatsResponse)
   assert len(result.stats) == 0
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_snapshots_success():
+  """스냅샷 조회 API가 성공할 때 올바른 Pydantic 응답 모델을 반환하는지 테스트합니다."""
+  mock_data = [
+      {
+          "id": 1,
+          "account_id": 10,
+          "snapshot_date": "2026-06-26",
+          "period_deposit": 50000.0,
+          "total_valuation": 1200000.0,
+          "total_profit": 150000.0
+      }
+  ]
+  respx.get("http://mock-asset-server/api/db/snapshots").mock(
+      return_value=Response(200, json=mock_data)
+  )
+
+  result = await get_snapshots()
+  assert isinstance(result, SnapshotsResponse)
+  assert len(result.snapshots) == 1
+  assert result.snapshots[0].id == 1
+  assert result.snapshots[0].account_id == 10
+  assert result.snapshots[0].snapshot_date == "2026-06-26"
+  assert result.snapshots[0].period_deposit == 50000.0
+  assert result.snapshots[0].total_valuation == 1200000.0
+  assert result.snapshots[0].total_profit == 150000.0
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_snapshots_http_error():
+  """스냅샷 조회 API 호출 실패 시 AssetClientError 예외를 발생시키는지 테스트합니다."""
+  respx.get("http://mock-asset-server/api/db/snapshots").mock(
+      return_value=Response(500)
+  )
+
+  with pytest.raises(AssetClientError):
+    await get_snapshots()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_snapshots_network_error():
+  """스냅샷 조회 API 호출 시 네트워크 에러 발생할 때 AssetClientError를 반환하는지 테스트합니다."""
+  respx.get("http://mock-asset-server/api/db/snapshots").mock(
+      side_effect=RequestError("Connection refused")
+  )
+
+  with pytest.raises(AssetClientError):
+    await get_snapshots()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_transactions_success():
+  """거래내역 조회 API가 성공할 때 올바른 Pydantic 응답 모델을 반환하는지 테스트합니다."""
+  mock_data = [
+      {
+          "id": 100,
+          "account_id": 10,
+          "asset_id": 5,
+          "transaction_date": "2026-06-26",
+          "type": "BUY",
+          "quantity": 10.0,
+          "price": 150.0,
+          "total_amount": 1500.0,
+          "currency": "USD",
+          "exchange_rate": 1350.0,
+          "memo": "Test memo",
+          "asset_name": "Apple Inc.",
+          "asset_ticker": "AAPL"
+      }
+  ]
+  respx.get("http://mock-asset-server/api/db/transactions").mock(
+      return_value=Response(200, json=mock_data)
+  )
+
+  result = await get_transactions()
+  assert isinstance(result, TransactionsResponse)
+  assert len(result.transactions) == 1
+  assert result.transactions[0].id == 100
+  assert result.transactions[0].account_id == 10
+  assert result.transactions[0].asset_id == 5
+  assert result.transactions[0].transaction_date == "2026-06-26"
+  assert result.transactions[0].type == "BUY"
+  assert result.transactions[0].quantity == 10.0
+  assert result.transactions[0].price == 150.0
+  assert result.transactions[0].total_amount == 1500.0
+  assert result.transactions[0].currency == "USD"
+  assert result.transactions[0].exchange_rate == 1350.0
+  assert result.transactions[0].memo == "Test memo"
+  assert result.transactions[0].asset_name == "Apple Inc."
+  assert result.transactions[0].asset_ticker == "AAPL"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_transactions_with_date_success():
+  """기간 파라미터가 포함된 거래내역 조회 API가 성공할 때 올바른 결과를 반환하는지 테스트합니다."""
+  mock_data = []
+  respx.get("http://mock-asset-server/api/db/transactions?start_date=2026-06-01&end_date=2026-06-26").mock(
+      return_value=Response(200, json=mock_data)
+  )
+
+  result = await get_transactions(start_date="2026-06-01", end_date="2026-06-26")
+  assert isinstance(result, TransactionsResponse)
+  assert len(result.transactions) == 0
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_transactions_http_error():
+  """거래내역 조회 API 호출 실패 시 AssetClientError 예외를 발생시키는지 테스트합니다."""
+  respx.get("http://mock-asset-server/api/db/transactions").mock(
+      return_value=Response(500)
+  )
+
+  with pytest.raises(AssetClientError):
+    await get_transactions()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_transactions_network_error():
+  """거래내역 조회 API 호출 시 네트워크 에러 발생할 때 AssetClientError를 반환하는지 테스트합니다."""
+  respx.get("http://mock-asset-server/api/db/transactions").mock(
+      side_effect=RequestError("Connection refused")
+  )
+
+  with pytest.raises(AssetClientError):
+    await get_transactions()
 
 
 

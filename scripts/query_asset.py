@@ -15,6 +15,8 @@ from asset_jun_bot.asset_client import (
     get_portfolio_status,
     get_yearly_stats,
     get_daily_stats,
+    get_snapshots,
+    get_transactions,
     AssetClientError,
 )
 
@@ -24,7 +26,7 @@ async def main_async():
   parser.add_argument(
       "--action",
       required=True,
-      choices=["summary", "ratios", "watchlist", "portfolio", "yearly", "daily"],
+      choices=["summary", "ratios", "watchlist", "portfolio", "yearly", "daily", "snapshots", "transactions"],
       help="Action to perform",
   )
   parser.add_argument(
@@ -77,6 +79,15 @@ async def main_async():
           start_date=args.start_date,
           end_date=args.end_date,
           all_data=args.all
+      )
+      print(res.model_dump_json(indent=2))
+    elif args.action == "snapshots":
+      res = await get_snapshots()
+      print(res.model_dump_json(indent=2))
+    elif args.action == "transactions":
+      res = await get_transactions(
+          start_date=args.start_date,
+          end_date=args.end_date
       )
       print(res.model_dump_json(indent=2))
   except AssetClientError as err:

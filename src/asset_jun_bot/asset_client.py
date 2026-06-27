@@ -269,6 +269,43 @@ class DailyStatsResponse(BaseModel):
   stats: List[DailyStatItem] = Field(..., description="일자별 자산 현황 목록")
 
 
+class TransactionItem(BaseModel):
+  """개별 거래 내역 정보 모델입니다."""
+  id: int | None = Field(None, description="거래 식별자")
+  account_id: int = Field(..., description="계좌 식별자")
+  asset_id: int = Field(..., description="자산 식별자")
+  transaction_date: str = Field(..., description="거래 일자 (YYYY-MM-DD)")
+  type: str = Field(..., description="거래 유형 (BUY, SELL 등)")
+  quantity: float = Field(0.0, description="수량")
+  price: float = Field(0.0, description="단가")
+  total_amount: float = Field(..., description="총 거래 금액")
+  currency: str = Field(..., description="통화 (KRW, USD)")
+  exchange_rate: float | None = Field(None, description="환율")
+  memo: str | None = Field(None, description="메모")
+  asset_name: str | None = Field(None, description="자산명")
+  asset_ticker: str | None = Field(None, description="자산 티커")
+
+
+class TransactionsResponse(BaseModel):
+  """거래 내역 목록 응답 모델입니다."""
+  transactions: List[TransactionItem] = Field(..., description="거래 내역 목록")
+
+
+class SnapshotItem(BaseModel):
+  """계좌 상태 스냅샷 정보 모델입니다."""
+  id: int = Field(..., description="스냅샷 식별자")
+  account_id: int = Field(..., description="계좌 식별자")
+  snapshot_date: str = Field(..., description="기준 일자 (YYYY-MM-DD)")
+  period_deposit: float = Field(..., description="해당 기간 추가 입금액")
+  total_valuation: float = Field(..., description="총 평가액")
+  total_profit: float = Field(..., description="누적 수익")
+
+
+class SnapshotsResponse(BaseModel):
+  """자산 상태 스냅샷 목록 응답 모델입니다."""
+  snapshots: List[SnapshotItem] = Field(..., description="자산 상태 스냅샷 목록")
+
+
 
 
 
@@ -913,6 +950,125 @@ async def get_daily_stats(
             )
         )
       return DailyStatsResponse(stats=stats)
+
+  except httpx.HTTPStatusError as exc:
+    raise AssetClientError(
+        f"AssetManager API 호출 실패 (HTTP 오류 코드: {exc.response.status_code})"
+    ) from exc
+  except httpx.RequestError as exc:
+    raise AssetClientError(
+        f"AssetManager API 서버 연결 네트워크 오류: {exc}"
+    ) from exc
+  except Exception as exc:
+    raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
+
+
+async def get_snapshots() -> SnapshotsResponse:
+  """AssetManager API로부터 자산 상태 스냅샷 목록을 조회하여 Pydantic 모델로 반환합니다.
+
+  Returns:
+      SnapshotsResponse: 자산 상태 스냅샷 목록을 담은 Pydantic 객체
+
+  Raises:
+      AssetClientError: 설정 로드 실패, HTTP 호출 실패 또는 네트워크 오류 발생 시
+  """
+  try:
+    config = Config.load()
+  except ValueError as err:
+    raise AssetClientError(f"설정 로드 중 오류 발생: {err}") from err
+
+  url = f"{config.asset_manager_api_url}/api/db/snapshots"
+
+  try:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+      response = await client.get(url)
+      response.raise_for_status()
+      data = response.json()
+
+      snapshots = []
+      for item in data:
+        snapshots.append(
+            SnapshotItem(
+                id=item.get("id"),
+                account_id=item.get("account_id"),
+                snapshot_date=item.get("snapshot_date"),
+                period_deposit=item.get("period_deposit", 0.0),
+                total_valuation=item.get("total_valuation", 0.0),
+                total_profit=item.get("total_profit", 0.0),
+            )
+        )
+      return SnapshotsResponse(snapshots=snapshots)
+
+  except httpx.HTTPStatusError as exc:
+    raise AssetClientError(
+        f"AssetManager API 호출 실패 (HTTP 오류 코드: {exc.response.status_code})"
+    ) from exc
+  except httpx.RequestError as exc:
+    raise AssetClientError(
+        f"AssetManager API 서버 연결 네트워크 오류: {exc}"
+    ) from exc
+  except Exception as exc:
+    raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
+
+
+async def get_transactions(
+    start_date: str | None = None,
+    end_date: str | None = None
+) -> TransactionsResponse:
+  """AssetManager API로부터 전체 또는 필터링된 거래 내역을 조회하여 Pydantic 모델로 반환합니다.
+
+  Args:
+      start_date: 조회 시작일 ("YYYY-MM-DD", 생략 가능)
+      end_date: 조회 종료일 ("YYYY-MM-DD", 생략 가능)
+
+  Returns:
+      TransactionsResponse: 거래 내역 목록을 담은 Pydantic 객체
+
+  Raises:
+      AssetClientError: 설정 로드 실패, HTTP 호출 실패 또는 네트워크 오류 발생 시
+  """
+  try:
+    config = Config.load()
+  except ValueError as err:
+    raise AssetClientError(f"설정 로드 중 오류 발생: {err}") from err
+
+  url = f"{config.asset_manager_api_url}/api/db/transactions"
+  params = {}
+  if start_date:
+    params["start_date"] = start_date
+  if end_date:
+    params["end_date"] = end_date
+
+  try:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+      response = await client.get(url, params=params)
+      response.raise_for_status()
+      data = response.json()
+
+      transactions = []
+      for item in data:
+        asset = item.get("asset") or {}
+        asset_name = item.get("asset_name") or asset.get("name")
+        asset_ticker = item.get("asset_ticker") or asset.get("ticker")
+
+        transactions.append(
+            TransactionItem(
+                id=item.get("id"),
+                account_id=item.get("account_id"),
+                asset_id=item.get("asset_id"),
+                transaction_date=item.get("transaction_date"),
+                type=item.get("type"),
+                quantity=item.get("quantity", 0.0),
+                price=item.get("price", 0.0),
+                total_amount=item.get("total_amount", 0.0),
+                currency=item.get("currency"),
+                exchange_rate=item.get("exchange_rate"),
+                memo=item.get("memo"),
+                asset_name=asset_name,
+                asset_ticker=asset_ticker,
+            )
+        )
+      return TransactionsResponse(transactions=transactions)
 
   except httpx.HTTPStatusError as exc:
     raise AssetClientError(
