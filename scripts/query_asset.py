@@ -13,6 +13,8 @@ from asset_jun_bot.asset_client import (
     get_asset_ratios,
     get_watchlist_prices,
     get_portfolio_status,
+    get_yearly_stats,
+    get_daily_stats,
     AssetClientError,
 )
 
@@ -22,7 +24,7 @@ async def main_async():
   parser.add_argument(
       "--action",
       required=True,
-      choices=["summary", "ratios", "watchlist", "portfolio"],
+      choices=["summary", "ratios", "watchlist", "portfolio", "yearly", "daily"],
       help="Action to perform",
   )
   parser.add_argument(
@@ -35,6 +37,21 @@ async def main_async():
       "--date",
       default=None,
       help="Inquiry standard date (YYYY-MM-DD)",
+  )
+  parser.add_argument(
+      "--start-date",
+      default=None,
+      help="Start date for daily stats (YYYY-MM-DD)",
+  )
+  parser.add_argument(
+      "--end-date",
+      default=None,
+      help="End date for daily stats (YYYY-MM-DD)",
+  )
+  parser.add_argument(
+      "--all",
+      action="store_true",
+      help="Query all daily stats data",
   )
 
   args = parser.parse_args()
@@ -51,6 +68,16 @@ async def main_async():
       print(res.model_dump_json(indent=2))
     elif args.action == "portfolio":
       res = await get_portfolio_status(date=args.date)
+      print(res.model_dump_json(indent=2))
+    elif args.action == "yearly":
+      res = await get_yearly_stats()
+      print(res.model_dump_json(indent=2))
+    elif args.action == "daily":
+      res = await get_daily_stats(
+          start_date=args.start_date,
+          end_date=args.end_date,
+          all_data=args.all
+      )
       print(res.model_dump_json(indent=2))
   except AssetClientError as err:
     print(f"API Error: {err}", file=sys.stderr)

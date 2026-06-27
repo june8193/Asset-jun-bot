@@ -16,6 +16,8 @@ from asset_jun_bot.asset_client import (
     get_market_history,
     get_stock_prices,
     get_portfolio_status,
+    get_yearly_stats,
+    get_daily_stats,
     AssetSummaryResponse,
     AssetRatiosResponse,
     WatchlistPricesResponse,
@@ -26,6 +28,10 @@ from asset_jun_bot.asset_client import (
     StockPriceItem,
     PortfolioStatusResponse,
     PortfolioHoldingItem,
+    YearlyStatsResponse,
+    DailyStatsResponse,
+    YearlyStatItem,
+    DailyStatItem,
     AssetClientError,
 )
 
@@ -657,6 +663,74 @@ async def test_get_portfolio_status_network_error():
   with pytest.raises(AssetClientError) as exc_info:
     await get_portfolio_status()
   assert "네트워크 오류" in str(exc_info.value) or "연결" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_yearly_stats_success():
+  """연도별 자산 현황 통계를 성공적으로 조회하는지 테스트합니다."""
+  mock_data = [
+      {
+          "year": 2026,
+          "contribution": 1000000.0,
+          "profit": 500000.0,
+          "roi": 5.0,
+          "assets": 10500000.0,
+          "increase": 1500000.0
+      }
+  ]
+  respx.get("http://mock-asset-server/api/dashboard/yearly").mock(
+      return_value=Response(200, json=mock_data)
+  )
+
+  result = await get_yearly_stats()
+  assert isinstance(result, YearlyStatsResponse)
+  assert len(result.stats) == 1
+  assert isinstance(result.stats[0], YearlyStatItem)
+  assert result.stats[0].year == 2026
+  assert result.stats[0].roi == 5.0
+  assert result.stats[0].assets == 10500000.0
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_daily_stats_success():
+  """일자별 자산 현황 통계를 성공적으로 조회하는지 테스트합니다."""
+  mock_data = [
+      {
+          "date": "2026-06-27",
+          "contribution": 100000.0,
+          "profit": -5000.0,
+          "roi": -0.5,
+          "assets": 10450000.0,
+          "increase": 95000.0
+      }
+  ]
+  respx.get("http://mock-asset-server/api/dashboard/daily?all=false").mock(
+      return_value=Response(200, json=mock_data)
+  )
+
+  result = await get_daily_stats()
+  assert isinstance(result, DailyStatsResponse)
+  assert len(result.stats) == 1
+  assert isinstance(result.stats[0], DailyStatItem)
+  assert result.stats[0].date == "2026-06-27"
+  assert result.stats[0].roi == -0.5
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_daily_stats_with_params_success():
+  """일자별 자산 현황 통계를 파라미터와 함께 성공적으로 조회하는지 테스트합니다."""
+  mock_data = []
+  respx.get("http://mock-asset-server/api/dashboard/daily?all=true&start_date=2026-06-01&end_date=2026-06-27").mock(
+      return_value=Response(200, json=mock_data)
+  )
+
+  result = await get_daily_stats(start_date="2026-06-01", end_date="2026-06-27", all_data=True)
+  assert isinstance(result, DailyStatsResponse)
+  assert len(result.stats) == 0
+
 
 
 

@@ -2,7 +2,15 @@
 """AssetManager API 실제 연동 통합 테스트 모듈입니다."""
 
 import pytest
-from asset_jun_bot.asset_client import get_asset_ratios, AssetRatiosResponse, AssetClientError
+from asset_jun_bot.asset_client import (
+    get_asset_ratios,
+    get_yearly_stats,
+    get_daily_stats,
+    AssetRatiosResponse,
+    YearlyStatsResponse,
+    DailyStatsResponse,
+    AssetClientError,
+)
 
 
 @pytest.mark.asyncio
@@ -38,3 +46,42 @@ async def test_get_asset_ratios_integration():
     assert isinstance(item.target_percentage, float)
     assert isinstance(item.target_amt, float)
     assert isinstance(item.diff_amt, float)
+
+
+@pytest.mark.asyncio
+async def test_get_yearly_stats_integration():
+  """실제 가동 중인 AssetManager API 서버로부터 연간 자산 통계 데이터를 받아 검증합니다."""
+  try:
+    result = await get_yearly_stats()
+  except AssetClientError as exc:
+    pytest.fail(f"AssetManager API 연간 자산 통계 실제 연동 실패: {exc}")
+
+  assert isinstance(result, YearlyStatsResponse)
+  assert isinstance(result.stats, list)
+  for item in result.stats:
+    assert isinstance(item.year, int)
+    assert isinstance(item.contribution, float)
+    assert isinstance(item.profit, float)
+    assert isinstance(item.roi, float)
+    assert isinstance(item.assets, float)
+    assert isinstance(item.increase, float)
+
+
+@pytest.mark.asyncio
+async def test_get_daily_stats_integration():
+  """실제 가동 중인 AssetManager API 서버로부터 일자별 자산 통계 데이터를 받아 검증합니다."""
+  try:
+    result = await get_daily_stats()
+  except AssetClientError as exc:
+    pytest.fail(f"AssetManager API 일간 자산 통계 실제 연동 실패: {exc}")
+
+  assert isinstance(result, DailyStatsResponse)
+  assert isinstance(result.stats, list)
+  for item in result.stats:
+    assert isinstance(item.date, str)
+    assert isinstance(item.contribution, float)
+    assert isinstance(item.profit, float)
+    assert isinstance(item.roi, float)
+    assert isinstance(item.assets, float)
+    assert isinstance(item.increase, float)
+

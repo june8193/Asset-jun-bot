@@ -213,6 +213,63 @@ class PortfolioStatusResponse(BaseModel):
   holdings: List[PortfolioHoldingItem] = Field(..., description="보유 종목 목록")
 
 
+class YearlyStatItem(BaseModel):
+  """연도별 자산 현황 통계 아이템 모델입니다.
+
+  Attributes:
+      year: 연도
+      contribution: 연간 순 추가액 (KRW)
+      profit: 연간 투자 수익 (KRW)
+      roi: 연간 투자수익률 (%)
+      assets: 기말 자산 평가액 (KRW)
+      increase: 자산 증감액 (KRW)
+  """
+  year: int = Field(..., description="연도")
+  contribution: float = Field(..., description="순 추가액 (KRW)")
+  profit: float = Field(..., description="연간 투자 수익 (KRW)")
+  roi: float = Field(..., description="연간 투자수익률 (%)")
+  assets: float = Field(..., description="기말 자산 평가액 (KRW)")
+  increase: float = Field(..., description="자산 증감액 (KRW)")
+
+
+class YearlyStatsResponse(BaseModel):
+  """연도별 자산 현황 통계 응답 모델입니다.
+
+  Attributes:
+      stats: 연도별 자산 현황 목록
+  """
+  stats: List[YearlyStatItem] = Field(..., description="연도별 자산 현황 목록")
+
+
+class DailyStatItem(BaseModel):
+  """일자별 자산 현황 통계 아이템 모델입니다.
+
+  Attributes:
+      date: 날짜 (YYYY-MM-DD)
+      contribution: 일간 순 추가액 (KRW)
+      profit: 일간 투자 수익 (KRW)
+      roi: 일일 투자수익률 (%)
+      assets: 일간 자산 평가액 (KRW)
+      increase: 자산 증감액 (KRW)
+  """
+  date: str = Field(..., description="날짜 (YYYY-MM-DD)")
+  contribution: float = Field(..., description="추가액 (KRW)")
+  profit: float = Field(..., description="투자 수익 (KRW)")
+  roi: float = Field(..., description="투자수익률 (%)")
+  assets: float = Field(..., description="자산 평가액 (KRW)")
+  increase: float = Field(..., description="자산 증감액 (KRW)")
+
+
+class DailyStatsResponse(BaseModel):
+  """일자별 자산 현황 통계 응답 모델입니다.
+
+  Attributes:
+      stats: 일자별 자산 현황 목록
+  """
+  stats: List[DailyStatItem] = Field(..., description="일자별 자산 현황 목록")
+
+
+
 
 
 
@@ -757,6 +814,117 @@ async def get_portfolio_status(date: str | None = None) -> PortfolioStatusRespon
     ) from exc
   except Exception as exc:
     raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
+
+
+async def get_yearly_stats() -> YearlyStatsResponse:
+  """AssetManager API로부터 연도별 자산 현황 통계를 조회하여 Pydantic 모델로 반환합니다.
+
+  Returns:
+      YearlyStatsResponse: 연도별 자산 현황 목록을 담은 Pydantic 객체
+
+  Raises:
+      AssetClientError: 설정 로드 실패, HTTP 호출 실패 또는 네트워크 오류 발생 시
+  """
+  try:
+    config = Config.load()
+  except ValueError as err:
+    raise AssetClientError(f"설정 로드 중 오류 발생: {err}") from err
+
+  url = f"{config.asset_manager_api_url}/api/dashboard/yearly"
+
+  try:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+      response = await client.get(url)
+      response.raise_for_status()
+      data = response.json()
+
+      stats = []
+      for item in data:
+        stats.append(
+            YearlyStatItem(
+                year=item.get("year"),
+                contribution=item.get("contribution", 0.0),
+                profit=item.get("profit", 0.0),
+                roi=item.get("roi", 0.0),
+                assets=item.get("assets", 0.0),
+                increase=item.get("increase", 0.0),
+            )
+        )
+      return YearlyStatsResponse(stats=stats)
+
+  except httpx.HTTPStatusError as exc:
+    raise AssetClientError(
+        f"AssetManager API 호출 실패 (HTTP 오류 코드: {exc.response.status_code})"
+    ) from exc
+  except httpx.RequestError as exc:
+    raise AssetClientError(
+        f"AssetManager API 서버 연결 네트워크 오류: {exc}"
+    ) from exc
+  except Exception as exc:
+    raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
+
+
+async def get_daily_stats(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    all_data: bool = False
+) -> DailyStatsResponse:
+  """AssetManager API로부터 일자별 자산 현황 통계를 조회하여 Pydantic 모델로 반환합니다.
+
+  Args:
+      start_date: 조회 시작일 ("YYYY-MM-DD", 생략 시 API 기본값)
+      end_date: 조회 종료일 ("YYYY-MM-DD", 생략 시 API 기본값)
+      all_data: 전체 데이터 조회 여부 (기본값 False)
+
+  Returns:
+      DailyStatsResponse: 일자별 자산 현황 목록을 담은 Pydantic 객체
+
+  Raises:
+      AssetClientError: 설정 로드 실패, HTTP 호출 실패 또는 네트워크 오류 발생 시
+  """
+  try:
+    config = Config.load()
+  except ValueError as err:
+    raise AssetClientError(f"설정 로드 중 오류 발생: {err}") from err
+
+  url = f"{config.asset_manager_api_url}/api/dashboard/daily"
+  params = {"all": str(all_data).lower()}
+  if start_date:
+    params["start_date"] = start_date
+  if end_date:
+    params["end_date"] = end_date
+
+  try:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+      response = await client.get(url, params=params)
+      response.raise_for_status()
+      data = response.json()
+
+      stats = []
+      for item in data:
+        stats.append(
+            DailyStatItem(
+                date=item.get("date"),
+                contribution=item.get("contribution", 0.0),
+                profit=item.get("profit", 0.0),
+                roi=item.get("roi", 0.0),
+                assets=item.get("assets", 0.0),
+                increase=item.get("increase", 0.0),
+            )
+        )
+      return DailyStatsResponse(stats=stats)
+
+  except httpx.HTTPStatusError as exc:
+    raise AssetClientError(
+        f"AssetManager API 호출 실패 (HTTP 오류 코드: {exc.response.status_code})"
+    ) from exc
+  except httpx.RequestError as exc:
+    raise AssetClientError(
+        f"AssetManager API 서버 연결 네트워크 오류: {exc}"
+    ) from exc
+  except Exception as exc:
+    raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
+
 
 
 
