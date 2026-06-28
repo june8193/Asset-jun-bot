@@ -46,7 +46,7 @@ description: Generate, save, and convert the weekly S&P 500/NASDAQ/DOW index sta
   - **주간 보고서 템플릿**:
     ```markdown
     # 📢 미국 주식 시장 주간 현황 보고서
-    - **분석 기간**: [시작일 YYYY-MM-DD] (일) ~ [종료일 YYYY-MM-DD] (토)
+    - **분석 기간 (한국)**: [시작일 YYYY-MM-DD] (일) ~ [종료일 YYYY-MM-DD] (토)
     - **작성 시간 (한국)**: [현재 시간 YYYY-MM-DD (요일)]
     ---
 
