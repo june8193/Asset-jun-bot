@@ -49,8 +49,37 @@ async def run_get_history(tickers_str: str, start_date: str | None, end_date: st
         print("해당 기간의 데이터가 존재하지 않습니다.")
         print()
         continue
-      for item in items:
+      
+      # 날짜순으로 정렬하여 신뢰도 확보
+      sorted_items = sorted(items, key=lambda x: x.date)
+      for item in sorted_items:
         print(f"DATE: {item.date} | CLOSE_PRICE: {item.close_price}")
+      print()
+
+      # 지수 변동 분석 수행
+      print(f"[{ticker} 지수 변동 분석]")
+      start_item = sorted_items[0]
+      end_item = sorted_items[-1]
+
+      if len(sorted_items) > 1:
+        change_amt = end_item.close_price - start_item.close_price
+        change_rate = (change_amt / start_item.close_price) * 100
+
+        if change_rate > 0:
+          rate_str = f"+{change_rate:.2f}%"
+          amt_str = f"+{change_amt:.2f}"
+        elif change_rate < 0:
+          rate_str = f"{change_rate:.2f}%"
+          amt_str = f"{change_amt:.2f}"
+        else:
+          rate_str = "0.00%"
+          amt_str = "0.00"
+      else:
+        amt_str = "0.00"
+        rate_str = "0.00%"
+
+      print(f"START: {start_item.date} ({start_item.close_price:.1f}) | END: {end_item.date} ({end_item.close_price:.1f})")
+      print(f"CHANGE: {amt_str} ({rate_str})")
       print()
   except AssetClientError as err:
     print(f"Error getting market history: {err}", file=sys.stderr)
