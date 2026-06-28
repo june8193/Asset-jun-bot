@@ -37,7 +37,7 @@ description: Generate, save, and convert the daily KOSPI/KOSDAQ index status rep
 
 ### 2단계: 마크다운 파일 생성 및 저장
 - [ ] **저장 경로 확인**: 저장할 디렉터리 경로를 획득하기 위해 쉘 명령어 실행 도구(`run_command` 등)를 통해 `uv run python scripts/get_storage_dir.py` 명령을 실행하여 환경 변수 값을 확인합니다.
-- [ ] **마크다운 파일 생성 및 저장**: 파일 쓰기 도구(`write_to_file` 등)를 호출하여 `STORAGE_DIR/reports/korea_market/Korea_market_daily_report_YYYYMMDD.md` (YYYYMMDD는 오늘 날짜) 경로에 아래 템플릿 규격에 맞춘 새로운 마크다운 파일을 직접 생성하여 저장합니다.
+- [ ] **마크다운 파일 생성 및 저장**: 파일 쓰기 도구(`write_to_file` 등)를 호출하여 `STORAGE_DIR/reports/korea_market/daily/Korea_market_daily_report_YYYYMMDD.md` (YYYYMMDD는 오늘 날짜) 경로에 아래 템플릿 규격에 맞춘 새로운 마크다운 파일을 직접 생성하여 저장합니다.
   - ⚠️ **지수 등락률 표기 규칙**: 지수 등락률은 상승 시 반드시 `+` 기호를 앞에 붙여 표기해야 합니다. (예: `+1.23%`, `-0.45%` 등. 단, 보합일 경우 `0.00%`로 표기)
   - **보고서 템플릿**:
     - **평일 (is_holiday=false)인 경우**:
@@ -85,8 +85,8 @@ description: Generate, save, and convert the daily KOSPI/KOSDAQ index status rep
 
 ### 3단계: PDF 변환 실행
 - [ ] **명령어 준비**: 저장한 마크다운 파일 경로와 저장할 PDF 파일 경로를 식별합니다.
-  - 마크다운 경로: `STORAGE_DIR/reports/korea_market/Korea_market_daily_report_YYYYMMDD.md`
-  - PDF 저장 경로: `STORAGE_DIR/reports/korea_market/Korea_market_daily_report_YYYYMMDD.pdf`
+  - 마크다운 경로: `STORAGE_DIR/reports/korea_market/daily/Korea_market_daily_report_YYYYMMDD.md`
+  - PDF 저장 경로: `STORAGE_DIR/reports/korea_market/daily/Korea_market_daily_report_YYYYMMDD.pdf`
 - [ ] **명령 실행**: 쉘 명령어 실행 도구(`run_command` 등)를 호출하여 PDF 변환 스크립트를 직접 구동합니다.
   - 실행할 명령어:
     ```bash

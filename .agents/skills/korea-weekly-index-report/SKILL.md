@@ -28,7 +28,7 @@ description: Generate, save, and convert the weekly KOSPI/KOSDAQ index status re
 ### 2단계: 일일 보고서 수집 및 파싱
 - [ ] **저장 경로 확인**: 쉘 명령어 실행 도구(`run_command` 등)를 통해 `uv run python scripts/get_storage_dir.py` 명령을 실행하여 환경 변수 `STORAGE_DIR` 경로를 획득합니다.
 - [ ] **일일 보고서 파일 조회**: 1단계에서 산출된 7일간의 날짜(일요일 ~ 토요일)에 대해 각 날짜별 일일 마크다운 보고서 경로를 구성하여 존재 여부를 확인합니다.
-  - 한국 일일 보고서 경로: `STORAGE_DIR/reports/korea_market/Korea_market_daily_report_YYYYMMDD.md`
+  - 한국 일일 보고서 경로: `STORAGE_DIR/reports/korea_market/daily/Korea_market_daily_report_YYYYMMDD.md`
 - [ ] **보고서 내용 읽기**: 파일이 존재하는 일일 보고서들에 대해 파일 읽기 도구(`view_file` 등)를 사용해 내용을 조회합니다.
   - 파일이 없는 날짜(주말, 휴장일 또는 단순 누락)는 요약에서 제외하거나 '일일 보고서 미존재'로 간략히 기재하고 진행합니다.
 - [ ] **뉴스 및 분석 정보 요약**: 조회한 일일 보고서들로부터 날짜별 주요 뉴스 목록(제목, 링크)과 일일 종합 분석 요점을 추출합니다.
@@ -42,7 +42,7 @@ description: Generate, save, and convert the weekly KOSPI/KOSDAQ index status re
   - 출력 결과 중 각 지수별 **`[변동 분석]`** 영역에 출력된 시작일 종가, 종료일 종가 및 변동률 데이터를 파싱하여 기억합니다. (예: `CHANGE: +50.00 (+1.85%)`)
 
 ### 4단계: 주간 보고서 마크다운 생성 및 저장
-- [ ] **마크다운 파일 생성**: 파일 쓰기 도구(`write_to_file` 등)를 호출하여 `STORAGE_DIR/reports/korea_market/Korea_market_weekly_report_YYYYMMDD.md` (YYYYMMDD는 요약 주의 **토요일** 날짜) 경로에 아래 템플릿 규격에 맞춰 새로운 마크다운 파일을 생성 및 저장합니다.
+- [ ] **마크다운 파일 생성**: 파일 쓰기 도구(`write_to_file` 등)를 호출하여 `STORAGE_DIR/reports/korea_market/weekly/Korea_market_weekly_report_YYYYMMDD.md` (YYYYMMDD는 요약 주의 **토요일** 날짜) 경로에 아래 템플릿 규격에 맞춰 새로운 마크다운 파일을 생성 및 저장합니다.
   - **주간 보고서 템플릿**:
     ```markdown
     # 📢 국내 주식 시장 주간 현황 보고서
@@ -74,8 +74,8 @@ description: Generate, save, and convert the weekly KOSPI/KOSDAQ index status re
 
 ### 5단계: PDF 변환 실행
 - [ ] **변환 명령어 실행**: 쉘 명령어 실행 도구(`run_command` 등)를 통해 PDF 변환 스크립트를 구동합니다.
-  - 마크다운 경로: `STORAGE_DIR/reports/korea_market/Korea_market_weekly_report_YYYYMMDD.md`
-  - PDF 저장 경로: `STORAGE_DIR/reports/korea_market/Korea_market_weekly_report_YYYYMMDD.pdf`
+  - 마크다운 경로: `STORAGE_DIR/reports/korea_market/weekly/Korea_market_weekly_report_YYYYMMDD.md`
+  - PDF 저장 경로: `STORAGE_DIR/reports/korea_market/weekly/Korea_market_weekly_report_YYYYMMDD.pdf`
   - 실행 명령어:
     ```bash
     uv run python scripts/markdown_to_pdf.py [마크다운 절대경로] [PDF 절대경로]

@@ -30,7 +30,7 @@ description: Generate, save, and convert the daily S&P 500/NASDAQ/DOW index stat
 
 ### 2단계: 마크다운 파일 생성 및 저장
 - [ ] **저장 경로 확인**: 저장할 디렉터리 경로를 획득하기 위해 쉘 명령어 실행 도구(`run_command` 등)를 통해 `uv run python scripts/get_storage_dir.py` 명령을 실행하여 환경 변수 값을 확인합니다.
-- [ ] **마크다운 파일 생성 및 저장**: 파일 쓰기 도구(`write_to_file` 등)를 호출하여 `STORAGE_DIR/reports/us_market/US_market_daily_report_YYYYMMDD.md` (YYYYMMDD는 오늘 날짜) 경로에 아래 템플릿 규격에 맞춘 새로운 마크다운 파일을 직접 생성하여 저장합니다.
+- [ ] **마크다운 파일 생성 및 저장**: 파일 쓰기 도구(`write_to_file` 등)를 호출하여 `STORAGE_DIR/reports/us_market/daily/US_market_daily_report_YYYYMMDD.md` (YYYYMMDD는 오늘 날짜) 경로에 아래 템플릿 규격에 맞춘 새로운 마크다운 파일을 직접 생성하여 저장합니다.
   - **시간 정보 산출 기준**:
     - **작성 시간 (한국)**: 보고서를 생성하는 현재 시점의 한국 표준시(KST) 기준 날짜 및 요일을 표시합니다. (예: `2026-06-22 (월)`)
     - **분석 시간 (미국)**: `check_market_holiday` API의 응답 결과로 수신한 `DATE` 값을 활용하여, 해당 날짜의 요일과 함께 표시합니다. (예: API 응답이 `2026-06-21`인 경우 `2026-06-21 (일)`로 기입)
@@ -86,8 +86,8 @@ description: Generate, save, and convert the daily S&P 500/NASDAQ/DOW index stat
 
 ### 3단계: PDF 변환 실행
 - [ ] **명령어 준비**: 저장한 마크다운 파일 경로와 저장할 PDF 파일 경로를 식별합니다.
-  - 마크다운 경로: `STORAGE_DIR/reports/us_market/US_market_daily_report_YYYYMMDD.md`
-  - PDF 저장 경로: `STORAGE_DIR/reports/us_market/US_market_daily_report_YYYYMMDD.pdf`
+  - 마크다운 경로: `STORAGE_DIR/reports/us_market/daily/US_market_daily_report_YYYYMMDD.md`
+  - PDF 저장 경로: `STORAGE_DIR/reports/us_market/daily/US_market_daily_report_YYYYMMDD.pdf`
 - [ ] **명령 실행**: 쉘 명령어 실행 도구(`run_command` 등)를 호출하여 PDF 변환 스크립트를 직접 구동합니다.
   - 실행할 명령어:
     ```bash
