@@ -21,6 +21,7 @@ def setup_base_envs(monkeypatch):
   monkeypatch.setenv("MODEL_CHAT", "gemini-3.5-flash")
   monkeypatch.setenv("NAVER_API_CLIENT_ID", "mock_naver_id")
   monkeypatch.setenv("NAVER_API_CLIENT_SECRET", "mock_naver_secret")
+  monkeypatch.setenv("ASSET_MANAGER_DIR", "mock_asset_dir")
 
 
 def test_config_missing_telegram_token(monkeypatch):
@@ -76,6 +77,7 @@ def test_config_valid_parsing(monkeypatch):
   assert config.model_chat == "gemini-3.5-flash"
   assert config.naver_client_id == "mock_naver_id"
   assert config.naver_client_secret == "mock_naver_secret"
+  assert config.asset_manager_dir == "mock_asset_dir"
   # 기본값 확인
   assert config.asset_manager_api_url == "http://localhost:8000"
 
@@ -127,4 +129,15 @@ def test_config_missing_naver_api_client_secret(monkeypatch):
   with pytest.raises(ValueError) as excinfo:
     Config.load()
   assert "NAVER_API_CLIENT_SECRET" in str(excinfo.value)
+
+
+def test_config_missing_asset_manager_dir(monkeypatch):
+  """ASSET_MANAGER_DIR이 없을 때 ValueError를 발생하는지 테스트합니다."""
+  setup_base_envs(monkeypatch)
+  monkeypatch.delenv("ASSET_MANAGER_DIR", raising=False)
+
+  with pytest.raises(ValueError) as excinfo:
+    Config.load()
+  assert "ASSET_MANAGER_DIR" in str(excinfo.value)
+
 

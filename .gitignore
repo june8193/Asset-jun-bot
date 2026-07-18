@@ -20,3 +20,6 @@ work
 
 # GitHub Actions Runner
 actions-runner/
+
+# 안티그래비티 mcp 설정
+mcp_config.json

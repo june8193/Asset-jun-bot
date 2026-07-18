@@ -13,6 +13,7 @@ class Config:
       telegram_bot_token: str,
       telegram_allowed_user_ids: set[int],
       asset_manager_api_url: str,
+      asset_manager_dir: str,
       gemini_api_key: str,
       storage_dir: str,
       model_chat: str,
@@ -25,6 +26,7 @@ class Config:
         telegram_bot_token: Telegram 봇 토큰
         telegram_allowed_user_ids: 허용된 사용자 ID 집합
         asset_manager_api_url: AssetManager API 서버 주소
+        asset_manager_dir: AssetManager 소스 코드 디렉터리 경로
         gemini_api_key: Google Gemini API 키
         storage_dir: 공통 저장소 디렉터리 경로
         model_chat: 대화 및 자산 분석용 Gemini 모델명
@@ -34,6 +36,7 @@ class Config:
     self.telegram_bot_token = telegram_bot_token
     self.telegram_allowed_user_ids = telegram_allowed_user_ids
     self.asset_manager_api_url = asset_manager_api_url
+    self.asset_manager_dir = asset_manager_dir
     self.gemini_api_key = gemini_api_key
     self.storage_dir = storage_dir
     self.model_chat = model_chat
@@ -94,6 +97,10 @@ class Config:
     if not naver_client_secret:
       raise ValueError("NAVER_API_CLIENT_SECRET 환경변수가 필요합니다.")
 
+    asset_manager_dir = os.getenv("ASSET_MANAGER_DIR")
+    if not asset_manager_dir:
+      raise ValueError("ASSET_MANAGER_DIR 환경변수가 필요합니다.")
+
     asset_manager_api_url = os.getenv(
         "ASSET_MANAGER_API_URL", "http://localhost:8000"
     )
@@ -102,6 +109,7 @@ class Config:
         telegram_bot_token=telegram_bot_token,
         telegram_allowed_user_ids=telegram_allowed_user_ids,
         asset_manager_api_url=asset_manager_api_url,
+        asset_manager_dir=asset_manager_dir,
         gemini_api_key=gemini_api_key,
         storage_dir=storage_dir,
         model_chat=model_chat,

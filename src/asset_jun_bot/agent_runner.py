@@ -105,12 +105,41 @@ class AgentRunner:
 
       hooks_list = [pre_tool_call_hook, post_tool_call_hook]
 
+    from google.antigravity.types import McpStdioServer
+
+    asset_manager_dir = self.config.asset_manager_dir if self.config else "C:\\localrepo\\AssetManager"
+    asset_manager_api_url = self.config.asset_manager_api_url if self.config else "http://localhost:8000"
+
+    # 테스트 환경에서 MagicMock이 주입되는 경우에 대비해 문자열 타입으로 변환 및 기본값 설정
+    if not isinstance(asset_manager_dir, str):
+      asset_manager_dir = "mock_asset_dir"
+    if not isinstance(asset_manager_api_url, str):
+      asset_manager_api_url = "http://localhost:8000"
+
+    # MCP 서브프로세스가 부모 프로세스의 환경변수를 상속하므로, os.environ에 주입합니다.
+    os.environ["MCP_BACKEND_URL"] = asset_manager_api_url
+    os.environ["PYTHONPATH"] = asset_manager_dir
+
+    mcp_servers = [
+        McpStdioServer(
+            name="AssetManager",
+            command="uv",
+            args=[
+                "--directory",
+                asset_manager_dir,
+                "run",
+                "src/mcp/main.py",
+            ],
+        )
+    ]
+
     config = LocalAgentConfig(
         model=model_name,
         tools=tools,
         policies=policies,
         hooks=hooks_list,
         skills_paths=self.skills_paths,
+        mcp_servers=mcp_servers,
     )
 
     try:

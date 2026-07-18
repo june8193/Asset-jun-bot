@@ -16,6 +16,7 @@ def mock_env(monkeypatch):
   monkeypatch.setenv("MODEL_CHAT", "gemini-3.5-flash")
   monkeypatch.setenv("NAVER_API_CLIENT_ID", "mock_naver_id")
   monkeypatch.setenv("NAVER_API_CLIENT_SECRET", "mock_naver_secret")
+  monkeypatch.setenv("ASSET_MANAGER_DIR", "mock_asset_dir")
 
 
 @pytest.mark.asyncio
@@ -50,6 +51,15 @@ async def test_agent_runner_ask_success(mocker):
   assert len(kwargs.get("tools", [])) == 0
   assert len(kwargs.get("policies", [])) == 2  # deny_all + run_command allow = 2
   assert any("skills" in path for path in kwargs.get("skills_paths", []))
+  assert kwargs.get("mcp_servers") is not None
+  assert len(kwargs.get("mcp_servers")) == 1
+  assert kwargs.get("mcp_servers")[0].name == "AssetManager"
+  assert kwargs.get("mcp_servers")[0].args == [
+      "--directory",
+      "mock_asset_dir",
+      "run",
+      "src/mcp/main.py",
+  ]
 
 
 @pytest.mark.asyncio
