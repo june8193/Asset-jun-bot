@@ -34,12 +34,11 @@ description: Generate, save, and convert the weekly KOSPI/KOSDAQ index status re
 - [ ] **분석 정보 요약**: 조회한 일일 보고서들로부터 날짜별 종합 분석 요점 및 주요 시장 이벤트를 추출합니다.
 
 ### 3단계: 주간 지수 변동 데이터 조회
-- [ ] **주간 지수 변동 분석 획득**: 쉘 명령어 실행 도구(`run_command` 등)를 사용하여 지정된 주간 범위의 역사적 지수 데이터 변동 정보를 조회합니다.
-  - 실행 명령어:
-    ```bash
-    uv run python scripts/query_market.py --action history --tickers ^KS11,^KQ11 --start-date [1단계의 시작일 YYYY-MM-DD] --end-date [1단계의 종료일 YYYY-MM-DD]
-    ```
-  - 출력 결과 중 각 지수별 **`[변동 분석]`** 영역에 출력된 시작일 종가, 종료일 종가 및 변동률 데이터를 파싱하여 기억합니다. (예: `CHANGE: +50.00 (+1.85%)`)
+- [ ] **주간 지수 변동 분석 획득**: MCP 도구 호출 기능(`call_mcp_tool`)을 통해 `ServerName="assetmanager"`, `ToolName="get_market_history"`, `Arguments={"tickers": "^KS11,^KQ11", "start_date": "[1단계의 시작일 YYYY-MM-DD]", "end_date": "[1단계의 종료일 YYYY-MM-DD]"}` 형식으로 호출하여 지정된 주간 범위의 역사적 지수 데이터를 조회합니다.
+- [ ] **지수 변동 계산**: 반환받은 지수 이력 데이터(일자별 `close_price` 목록)를 바탕으로 각 지수별 변동 결과를 직접 계산합니다.
+  - 날짜순으로 정렬한 뒤 가장 첫 날짜의 종가(시작가)와 가장 마지막 날짜의 종가(종료가)를 식별합니다.
+  - 변동금액 = `종료가 - 시작가`
+  - 변동률 = `(변동금액 / 시작가) * 100` (소수점 둘째 자리까지 표기하며, 상승 시 반드시 `+` 기호를 붙입니다.)
 
 ### 4단계: 주간 보고서 마크다운 생성 및 저장
 - [ ] **마크다운 파일 생성**: 파일 쓰기 도구(`write_to_file` 등)를 호출하여 `STORAGE_DIR/reports/korea_market/weekly/Korea_market_weekly_report_YYYYMMDD.md` (YYYYMMDD는 요약 주의 **토요일** 날짜) 경로에 아래 템플릿 규격에 맞춰 새로운 마크다운 파일을 생성 및 저장합니다.
