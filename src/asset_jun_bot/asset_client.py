@@ -33,6 +33,8 @@ class AssetSummaryResponse(BaseModel):
   cumulative_roi: float = Field(..., description="누적 투자수익률 (%)")
   contribution_ratio: float = Field(..., description="투자원금 비율 (%)")
   profit_ratio: float = Field(..., description="투자수익 비율 (%)")
+  exchange_rate: dict = Field(..., description="환율 정보")
+  latest_price_date: str = Field(..., description="최신 주가 기준일")
 
 
 class AssetRatioItem(BaseModel):
@@ -340,6 +342,8 @@ async def get_asset_summary() -> AssetSummaryResponse:
       roi = data.get("cumulative_roi", 0.0)
       contribution_ratio = data.get("contribution_ratio", 100.0)
       profit_ratio = data.get("profit_ratio", 0.0)
+      exchange_rate = data.get("exchange_rate", {})
+      latest_price_date = data.get("latest_price_date", "최근 데이터 없음")
 
       return AssetSummaryResponse(
           total_valuation_krw=total_asset,
@@ -348,6 +352,8 @@ async def get_asset_summary() -> AssetSummaryResponse:
           cumulative_roi=roi,
           contribution_ratio=contribution_ratio,
           profit_ratio=profit_ratio,
+          exchange_rate=exchange_rate,
+          latest_price_date=latest_price_date,
       )
 
   except httpx.HTTPStatusError as exc:

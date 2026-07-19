@@ -388,4 +388,233 @@ async def test_telegram_bot_realtime_status_updates(mock_config, mock_agent_runn
   assert "최종 자산 분석 결과입니다." in body_3
 
 
+@pytest.mark.asyncio
+@respx.mock
+async def test_telegram_bot_cli_help(mock_config, mock_agent_runner):
+  """/help 명령어를 보냈을 때 AI를 타지 않고 도움말 메시지를 즉시 전송하는지 테스트합니다."""
+  mock_chat_history_manager = AsyncMock(spec=ChatHistoryManager)
+  bot = TelegramBot(
+      config=mock_config,
+      agent_runner=mock_agent_runner,
+      chat_history_manager=mock_chat_history_manager,
+  )
+
+  # getUpdates 모킹
+  updates_response = {
+      "ok": True,
+      "result": [
+          {
+              "update_id": 600,
+              "message": {
+                  "message_id": 1,
+                  "chat": {"id": 12345, "type": "private"},
+                  "text": "/help",
+              },
+          }
+      ],
+  }
+  respx.get("https://api.telegram.org/botmock_bot_token/getUpdates").mock(
+      return_value=Response(200, json=updates_response)
+  )
+
+  # sendMessage 모킹
+  send_message_route = respx.post(
+      "https://api.telegram.org/botmock_bot_token/sendMessage"
+  ).mock(return_value=Response(200, json={"ok": True}))
+
+  next_offset = await bot.poll_once(offset=None)
+
+  assert next_offset == 601
+  mock_agent_runner.ask.assert_not_called()  # AI 에이전트는 절대 타지 않음
+  assert send_message_route.called
+
+  req_body = send_message_route.calls.last.request.read().decode("utf-8")
+  assert "/help" in req_body
+  assert "/restart" in req_body
+  assert "/asset" in req_body
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_telegram_bot_cli_restart(mock_config, mock_agent_runner, tmp_path):
+  """/restart 명령어를 받았을 때 플래그 파일을 기록하고 시스템 종료 메서드를 수행하는지 테스트합니다."""
+  mock_chat_history_manager = AsyncMock(spec=ChatHistoryManager)
+  
+  # 임시 storage_dir 설정
+  mock_config.storage_dir = str(tmp_path)
+
+  bot = TelegramBot(
+      config=mock_config,
+      agent_runner=mock_agent_runner,
+      chat_history_manager=mock_chat_history_manager,
+  )
+
+  # exit_system 모킹
+  bot.exit_system = MagicMock()
+
+  updates_response = {
+      "ok": True,
+      "result": [
+          {
+              "update_id": 700,
+              "message": {
+                  "message_id": 1,
+                  "chat": {"id": 12345, "type": "private"},
+                  "text": "/restart",
+              },
+          }
+      ],
+  }
+  respx.get("https://api.telegram.org/botmock_bot_token/getUpdates").mock(
+      return_value=Response(200, json=updates_response)
+  )
+
+  respx.post("https://api.telegram.org/botmock_bot_token/sendMessage").mock(
+      return_value=Response(200, json={"ok": True})
+  )
+  respx.post("https://api.telegram.org/botmock_bot_token/sendChatAction").mock(
+      return_value=Response(200, json={"ok": True})
+  )
+
+  import os
+  flag_file = os.path.join(mock_config.storage_dir, ".restart_pending")
+  assert not os.path.exists(flag_file)
+
+  await bot.poll_once(offset=None)
+
+  # 플래그 파일 생성 완료 검증
+  assert os.path.exists(flag_file)
+  bot.exit_system.assert_called_once()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_telegram_bot_cli_asset(mock_config, mock_agent_runner, monkeypatch):
+  """/asset 명령어를 받았을 때 요약 및 비중 API를 조회해 올바른 레이아웃의 자산 보고서를 전송하는지 테스트합니다."""
+  # 환경 변수를 통해 Config.load()가 모킹 URL을 사용하도록 재설정
+  monkeypatch.setenv("ASSET_MANAGER_API_URL", "http://mock-asset-server")
+
+  mock_chat_history_manager = AsyncMock(spec=ChatHistoryManager)
+  bot = TelegramBot(
+      config=mock_config,
+      agent_runner=mock_agent_runner,
+      chat_history_manager=mock_chat_history_manager,
+  )
+
+  updates_response = {
+      "ok": True,
+      "result": [
+          {
+              "update_id": 800,
+              "message": {
+                  "message_id": 1,
+                  "chat": {"id": 12345, "type": "private"},
+                  "text": "/asset",
+              },
+          }
+      ],
+  }
+  respx.get("https://api.telegram.org/botmock_bot_token/getUpdates").mock(
+      return_value=Response(200, json=updates_response)
+  )
+
+  # get_asset_summary & get_asset_ratios 모의 API 응답
+  summary_json = {
+      "total_valuation_krw": 443152244.98,
+      "total_contribution": 320057785.0,
+      "initial_base_asset": 17452155.0,
+      "total_profit": 105642304.98,
+      "cumulative_roi": 31.3,
+      "contribution_ratio": 76.16,
+      "profit_ratio": 23.84,
+      "exchange_rate": {
+          "rate": 1484.1,
+          "date": "2026-07-12",
+          "created_at": "2026-07-12T10:52:41.366166",
+          "currency": "USD"
+      },
+      "latest_price_date": "2026-06-06"
+  }
+  respx.get("http://mock-asset-server/api/dashboard/summary").mock(
+      return_value=Response(200, json=summary_json)
+  )
+
+  ratios_json = {
+      "total_valuation": 443152244.98,
+      "total_target": 443000000.0,
+      "additional_cash": 0.0,
+      "major_results": [
+          {
+              "category": "일반주식",
+              "current_amt": 193852402.33,
+              "current_ratio": 43.7,
+              "target_percentage": 45.0,
+              "target_amt": 199418510.0,
+              "diff_amt": -5566108.0
+          }
+      ],
+      "sub_results": []
+  }
+  respx.get("http://mock-asset-server/api/ratios/rebalancing").mock(
+      return_value=Response(200, json=ratios_json)
+  )
+
+  send_message_route = respx.post(
+      "https://api.telegram.org/botmock_bot_token/sendMessage"
+  ).mock(return_value=Response(200, json={"ok": True}))
+
+  respx.post("https://api.telegram.org/botmock_bot_token/sendChatAction").mock(
+      return_value=Response(200, json={"ok": True})
+  )
+
+  await bot.poll_once(offset=None)
+
+  mock_agent_runner.ask.assert_not_called()
+  assert send_message_route.called
+
+  req_body = send_message_route.calls.last.request.read().decode("utf-8")
+  assert "통합 자산 현황" in req_body
+  assert "443,152,245" in req_body
+  assert "일반주식" in req_body
+  assert "목표: 45.0%" in req_body
+  assert "차액: -5,566,108" in req_body
+  assert "2026-07-12" in req_body
+  assert "2026-06-06" in req_body
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_telegram_bot_restart_notification(mock_config, mock_agent_runner, tmp_path):
+  """봇 가동 시작 단계에서 재시작 플래그가 발견되면, 안내 메시지를 쏘고 플래그 파일을 삭제하는지 테스트합니다."""
+  mock_chat_history_manager = AsyncMock(spec=ChatHistoryManager)
+  mock_config.storage_dir = str(tmp_path)
+
+  bot = TelegramBot(
+      config=mock_config,
+      agent_runner=mock_agent_runner,
+      chat_history_manager=mock_chat_history_manager,
+  )
+
+  # 플래그 파일 임의 사전 생성
+  import os
+  flag_file = os.path.join(mock_config.storage_dir, ".restart_pending")
+  with open(flag_file, "w") as f:
+    f.write("restart")
+
+  # sendMessage 모킹
+  send_message_route = respx.post(
+      "https://api.telegram.org/botmock_bot_token/sendMessage"
+  ).mock(return_value=Response(200, json={"ok": True}))
+
+  # 감지 함수 실행
+  await bot.check_restart_flag()
+
+  # 검증: 메시지 발송 완료 및 파일 삭제 완료
+  assert send_message_route.called
+  req_body = send_message_route.calls.last.request.read().decode("utf-8")
+  assert "재시작이 완료되었습니다" in req_body
+  assert not os.path.exists(flag_file)
+
+
+
 

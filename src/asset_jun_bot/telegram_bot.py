@@ -4,10 +4,13 @@
 import asyncio
 import logging
 import re
+import os
+import sys
 import httpx
 from .config import Config
 from .agent_runner import AgentRunner
 from .chat_history_manager import ChatHistoryManager
+from .asset_client import get_asset_summary, get_asset_ratios
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +95,12 @@ class TelegramBot:
       # 인가된 사용자의 텍스트 메시지 처리
       if text:
         logger.info(f"사용자 요청 수신 (Chat ID: {chat_id}): {text}")
+
+        # CLI 명령어 분기 (AI 개입 없음)
+        if text.startswith("/"):
+          await self.process_cli_command(chat_id, text)
+          continue
+
         # 사용자 대화 내역 저장
         await self.chat_history_manager.save_message(
             user_id=chat_id, role="user", message=text
@@ -295,6 +304,113 @@ class TelegramBot:
     except Exception as exc:
       logger.warning(f"Telegram sendChatAction 호출 실패 (Chat ID: {chat_id}): {exc}")
 
+  def exit_system(self) -> None:
+    """시스템을 정상 종료합니다. PM2의 autorestart 옵션과 연동하여 재기동을 발생시킵니다."""
+    logger.info("시스템을 종료합니다 (exit 0)...")
+    sys.exit(0)
+
+  async def check_restart_flag(self) -> None:
+    """스토리지 내 재시작 대기 플래그가 발견되면 알림을 전송하고 삭제합니다."""
+    flag_file = os.path.join(self.config.storage_dir, ".restart_pending")
+    if os.path.exists(flag_file):
+      logger.info("재시작 플래그 파일 감지: 완료 메시지를 발송하고 파일을 삭제합니다.")
+      try:
+        os.remove(flag_file)
+      except Exception as exc:
+        logger.error(f"재시작 플래그 파일 삭제 실패: {exc}")
+
+      # 봇 시작 단계에서 등록된 모든 허가 사용자에게 발송
+      for tid in self.config.telegram_allowed_user_ids:
+        await self._send_message(tid, "🔄 asset-jun-bot 서버 재시작이 완료되었습니다.")
+
+  async def process_cli_command(self, chat_id: int, text: str) -> None:
+    """AI 개입 없이 즉각 처리하는 CLI 명령어를 수행합니다."""
+    cmd = text.strip().split()[0].lower()
+
+    if cmd == "/help":
+      help_msg = (
+          "💡 **asset-jun-bot 명령어 안내**\n"
+          "• /help: 현재 명령어 리스트를 확인합니다.\n"
+          "• /restart: 봇 서버를 완전히 재시작합니다 (MCP 서버 연동 초기화 포함).\n"
+          "• /asset: 현재 통합 자산 총액 및 대분류 비중, 목표 대비 리밸런싱 현황을 조회합니다."
+      )
+      await self._send_message(chat_id, help_msg)
+
+    elif cmd == "/restart":
+      # 플래그 파일 작성
+      flag_file = os.path.join(self.config.storage_dir, ".restart_pending")
+      try:
+        os.makedirs(self.config.storage_dir, exist_ok=True)
+        with open(flag_file, "w", encoding="utf-8") as f:
+          f.write("restart_pending")
+      except Exception as exc:
+        logger.error(f"재시작 플래그 파일 생성 실패: {exc}")
+
+      await self._send_message(chat_id, "🔄 서버를 재시작합니다. 약 5~8초 정도 소요됩니다...")
+      self.exit_system()
+
+    elif cmd == "/asset":
+      # typing 상태 표시
+      await self._send_chat_action(chat_id, "typing")
+      try:
+        # 1. API 호출
+        summary = await get_asset_summary()
+        ratios = await get_asset_ratios()
+
+        # 2. 텍스트 빌드
+        total_val = summary.total_valuation_krw
+        total_principal = summary.total_principal
+        total_profit = summary.total_profit
+        roi = summary.cumulative_roi
+
+        profit_sign = "+" if total_profit >= 0 else ""
+
+        summary_section = (
+            "💰 **통합 자산 현황**\n"
+            f"• 총 평가자산: {total_val:,.0f}원\n"
+            f"• 총 투자원금: {total_principal:,.0f}원\n"
+            f"• 누적 투자수익: {profit_sign}{total_profit:,.0f}원 ({roi:.1f}%)"
+        )
+
+        ratio_items = []
+        for item in ratios.major_results:
+          diff_sign = "+" if item.diff_amt >= 0 else ""
+          ratio_items.append(
+              f"• {item.category}: {item.current_ratio:.1f}% ({item.current_amt:,.0f}원) "
+              f"[목표: {item.target_percentage:.1f}% | 차액: {diff_sign}{item.diff_amt:,.0f}원]"
+          )
+        ratio_section = "\n".join(ratio_items)
+
+        exch_info = summary.exchange_rate
+        exch_date = exch_info.get("date", "알 수 없음")
+        exch_rate = exch_info.get("rate", 1.0)
+        price_date = summary.latest_price_date
+
+        info_section = (
+            "📅 **기준 정보**\n"
+            f"• 환율 기준일: {exch_date} (적용 환율: {exch_rate:,.1f}원)\n"
+            f"• 주가 기준일: {price_date} (최신 DB 가격 데이터 기준)"
+        )
+
+        final_msg = (
+            f"{summary_section}\n\n"
+            "📊 **자산 대분류 비중 및 리밸런싱**\n"
+            f"{ratio_section}\n"
+            "*(참고: 차액이 +이면 목표 대비 초과 상태, -이면 목표 대비 부족 상태를 뜻합니다.)*\n\n"
+            f"{info_section}"
+        )
+        await self._send_message(chat_id, final_msg)
+
+      except Exception as exc:
+        logger.exception(f"자산 정보 조회 CLI 오류: {exc}")
+        await self._send_message(chat_id, f"⚠️ 자산 정보를 가져오는데 실패했습니다: {exc}")
+
+    else:
+      await self._send_message(
+          chat_id,
+          f"⚠️ 알 수 없는 명령어입니다: {cmd}\n사용 가능한 명령어 확인을 위해 `/help`를 입력해 보세요."
+      )
+
   async def start_polling(
       self, stop_event: asyncio.Event | None = None
   ) -> None:
@@ -303,6 +419,9 @@ class TelegramBot:
     Args:
         stop_event: 폴링을 중단하기 위한 asyncio.Event 객체 (옵션)
     """
+    # 재시작 플래그 검사 루틴 수행
+    await self.check_restart_flag()
+
     logger.info("Telegram 롱 폴링 루프를 실행합니다.")
     offset = None
 
