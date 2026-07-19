@@ -10,7 +10,14 @@ import httpx
 from .config import Config
 from .agent_runner import AgentRunner
 from .chat_history_manager import ChatHistoryManager
-from .asset_client import get_asset_summary, get_asset_ratios
+from .asset_client import (
+    get_asset_summary,
+    get_asset_ratios,
+    get_transactions,
+    get_yearly_stats,
+    get_daily_stats,
+)
+import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -332,7 +339,11 @@ class TelegramBot:
           "💡 **asset-jun-bot 명령어 안내**\n"
           "• /help: 현재 명령어 리스트를 확인합니다.\n"
           "• /restart: 봇 서버를 완전히 재시작합니다 (MCP 서버 연동 초기화 포함).\n"
-          "• /asset: 현재 통합 자산 총액 및 대분류 비중, 목표 대비 리밸런싱 현황을 조회합니다."
+          "• /asset: 현재 통합 자산 총액 및 누적 투자 수익, 기준 정보를 조회합니다.\n"
+          "• /ratio: 대분류 및 소분류 자산 비중과 목표비중 리밸런싱 현황을 조회합니다.\n"
+          "• /tx 또는 /transactions [개수]: 최근 거래내역을 조회합니다. (기본 5개)\n"
+          "• /yearly: 연도별 자산 통계 및 수익률을 조회합니다.\n"
+          "• /daily [일수]: 스냅샷 기준 일별 자산 및 수익 현황을 조회합니다. (기본 7일)"
       )
       await self._send_message(chat_id, help_msg)
 
@@ -355,7 +366,6 @@ class TelegramBot:
       try:
         # 1. API 호출
         summary = await get_asset_summary()
-        ratios = await get_asset_ratios()
 
         # 2. 텍스트 빌드
         total_val = summary.total_valuation_krw
@@ -372,15 +382,6 @@ class TelegramBot:
             f"• 누적 투자수익: {profit_sign}{total_profit:,.0f}원 ({roi:.1f}%)"
         )
 
-        ratio_items = []
-        for item in ratios.major_results:
-          diff_sign = "+" if item.diff_amt >= 0 else ""
-          ratio_items.append(
-              f"• {item.category}: {item.current_ratio:.1f}% ({item.current_amt:,.0f}원) "
-              f"[목표: {item.target_percentage:.1f}% | 차액: {diff_sign}{item.diff_amt:,.0f}원]"
-          )
-        ratio_section = "\n".join(ratio_items)
-
         exch_info = summary.exchange_rate
         exch_date = exch_info.get("date", "알 수 없음")
         exch_rate = exch_info.get("rate", 1.0)
@@ -394,9 +395,6 @@ class TelegramBot:
 
         final_msg = (
             f"{summary_section}\n\n"
-            "📊 **자산 대분류 비중 및 리밸런싱**\n"
-            f"{ratio_section}\n"
-            "*(참고: 차액이 +이면 목표 대비 초과 상태, -이면 목표 대비 부족 상태를 뜻합니다.)*\n\n"
             f"{info_section}"
         )
         await self._send_message(chat_id, final_msg)
@@ -404,6 +402,211 @@ class TelegramBot:
       except Exception as exc:
         logger.exception(f"자산 정보 조회 CLI 오류: {exc}")
         await self._send_message(chat_id, f"⚠️ 자산 정보를 가져오는데 실패했습니다: {exc}")
+
+    elif cmd == "/ratio":
+      await self._send_chat_action(chat_id, "typing")
+      try:
+        ratios = await get_asset_ratios()
+
+        # 1. 대분류 비중 빌드
+        major_items = []
+        for item in ratios.major_results:
+          diff_sign = "+" if item.diff_amt >= 0 else ""
+          major_items.append(
+              f"• {item.category}: {item.current_ratio:.1f}% ({item.current_amt:,.0f}원) "
+              f"[목표: {item.target_percentage:.1f}% | 차액: {diff_sign}{item.diff_amt:,.0f}원]"
+          )
+        major_section = "\n".join(major_items)
+
+        # 2. 소분류 비중 그룹화 빌드 (parent_category별로 묶음)
+        from collections import defaultdict
+        sub_groups = defaultdict(list)
+        for item in ratios.sub_results:
+          parent = item.parent_category or "기타"
+          sub_groups[parent].append(item)
+
+        sub_sections = []
+        for parent, items in sub_groups.items():
+          sub_items = []
+          for item in items:
+            diff_sign = "+" if item.diff_amt >= 0 else ""
+            sub_items.append(
+                f"  - {item.category}: {item.current_ratio:.1f}% ({item.current_amt:,.0f}원) "
+                f"[목표: {item.target_percentage:.1f}% | 차액: {diff_sign}{item.diff_amt:,.0f}원]"
+            )
+          sub_sections.append(f"[{parent}]\n" + "\n".join(sub_items))
+        sub_section = "\n\n".join(sub_sections)
+
+        final_msg = (
+            "📊 **자산 대분류 비중 및 리밸런싱**\n"
+            f"{major_section}\n\n"
+            "🔍 **자산 소분류 비중 및 리밸런싱**\n"
+            f"{sub_section}\n\n"
+            "*(참고: 차액이 +이면 목표 대비 초과 상태, -이면 목표 대비 부족 상태를 뜻합니다.)*"
+        )
+        await self._send_message(chat_id, final_msg)
+
+      except Exception as exc:
+        logger.exception(f"자산 비중 조회 CLI 오류: {exc}")
+        await self._send_message(chat_id, f"⚠️ 자산 비중 정보를 가져오는데 실패했습니다: {exc}")
+
+    elif cmd in ["/transactions", "/tx"]:
+      tokens = text.strip().split()
+      limit = 5
+      if len(tokens) > 1:
+        try:
+          limit = int(tokens[1])
+          if limit <= 0:
+            limit = 5
+        except ValueError:
+          pass
+
+      await self._send_chat_action(chat_id, "typing")
+      try:
+        tx_resp = await get_transactions()
+        transactions = tx_resp.transactions
+        # 최신 거래 순으로 내림차순 정렬
+        transactions.sort(key=lambda x: (x.transaction_date, x.id or 0), reverse=True)
+
+        recent_txs = transactions[:limit]
+
+        if not recent_txs:
+          await self._send_message(chat_id, "📝 최근 거래 내역이 없습니다.")
+          return
+
+        tx_items = []
+        for tx in recent_txs:
+          date_str = tx.transaction_date
+          tx_type = tx.type
+          type_map = {
+              "BUY": "매수",
+              "SELL": "매도",
+              "DEPOSIT": "입금",
+              "WITHDRAW": "출금",
+              "INITIAL_BALANCE": "초기잔고",
+              "INTEREST": "이자",
+              "TAX": "세금",
+              "CASH_ADJUSTMENT": "현금조정"
+          }
+          type_kor = type_map.get(tx_type, tx_type)
+          acc_display = f" | {tx.account_display_name}" if tx.account_display_name else ""
+
+          asset_info = ""
+          if tx.asset_name:
+            ticker_info = f" ({tx.asset_ticker})" if tx.asset_ticker else ""
+            asset_info = f" - {tx.asset_name}{ticker_info}"
+
+          amt_str = ""
+          if tx_type in ["BUY", "SELL"] and tx.quantity > 0:
+            price_unit = "원" if tx.currency == "KRW" else f" {tx.currency}"
+            total_unit = "원" if tx.currency == "KRW" else f" {tx.currency}"
+
+            exch_str = ""
+            if tx.currency != "KRW" and tx.exchange_rate:
+              krw_total = tx.total_amount * tx.exchange_rate
+              exch_str = f" (환율 {tx.exchange_rate:,.1f}원 | 원화 환산 {krw_total:,.0f}원)"
+
+            amt_str = f"\n  {tx.quantity:,.2f}주 @ {tx.price:,.2f}{price_unit} | 총 {tx.total_amount:,.2f}{total_unit}{exch_str}"
+          else:
+            unit = "원" if tx.currency == "KRW" else f" {tx.currency}"
+            exch_str = ""
+            if tx.currency != "KRW" and tx.exchange_rate:
+              krw_total = tx.total_amount * tx.exchange_rate
+              exch_str = f" (원화 환산 {krw_total:,.0f}원)"
+            amt_str = f"\n  총 {tx.total_amount:,.2f}{unit}{exch_str}"
+
+          memo_str = f" [{tx.memo}]" if tx.memo else ""
+
+          tx_items.append(
+              f"• [{date_str}] **{type_kor}**{acc_display}{asset_info}{memo_str}{amt_str}"
+          )
+
+        tx_section = "\n".join(tx_items)
+        final_msg = f"📝 **최근 거래 내역 (최근 {len(recent_txs)}건)**\n{tx_section}"
+        await self._send_message(chat_id, final_msg)
+
+      except Exception as exc:
+        logger.exception(f"최근 거래내역 조회 CLI 오류: {exc}")
+        await self._send_message(chat_id, f"⚠️ 최근 거래내역을 가져오는데 실패했습니다: {exc}")
+
+    elif cmd == "/yearly":
+      await self._send_chat_action(chat_id, "typing")
+      try:
+        yearly_resp = await get_yearly_stats()
+        stats = yearly_resp.stats
+        stats.sort(key=lambda x: x.year, reverse=True)
+
+        if not stats:
+          await self._send_message(chat_id, "📅 연도별 자산 통계 데이터가 없습니다.")
+          return
+
+        yearly_items = []
+        for y in stats:
+          profit_sign = "+" if y.profit >= 0 else ""
+          inc_sign = "+" if y.increase >= 0 else ""
+          yearly_items.append(
+              f"• **{y.year}년**:\n"
+              f"  - 기말 자산: {y.assets:,.0f}원 (전년비 {inc_sign}{y.increase:,.0f}원)\n"
+              f"  - 투자 수익: {profit_sign}{y.profit:,.0f}원 ({y.roi:+.1f}%)\n"
+              f"  - 순 투자금 추가액: {y.contribution:,.0f}원"
+          )
+
+        yearly_section = "\n".join(yearly_items)
+        final_msg = f"📅 **연도별 자산 및 투자 수익 현황**\n{yearly_section}"
+        await self._send_message(chat_id, final_msg)
+
+      except Exception as exc:
+        logger.exception(f"연간 수익률 조회 CLI 오류: {exc}")
+        await self._send_message(chat_id, f"⚠️ 연간 수익률 정보를 가져오는데 실패했습니다: {exc}")
+
+    elif cmd == "/daily":
+      tokens = text.strip().split()
+      days = 7
+      if len(tokens) > 1:
+        try:
+          days = int(tokens[1])
+          if days <= 0:
+            days = 7
+        except ValueError:
+          pass
+
+      await self._send_chat_action(chat_id, "typing")
+      try:
+        daily_resp = await get_daily_stats(all_data=True)
+        stats = daily_resp.stats
+        stats.sort(key=lambda x: x.date, reverse=True)
+
+        if not stats:
+          await self._send_message(chat_id, "📈 일별 스냅샷 데이터가 없습니다.")
+          return
+
+        recent_daily = stats[:days]
+
+        daily_items = []
+        for d in recent_daily:
+          try:
+            dt = datetime.datetime.strptime(d.date, "%Y-%m-%d")
+            weekday_map = ["월", "화", "수", "목", "금", "토", "일"]
+            weekday_str = weekday_map[dt.weekday()]
+            date_display = f"{d.date[5:]} ({weekday_str})"
+          except Exception:
+            date_display = d.date
+
+          profit_sign = "+" if d.profit >= 0 else ""
+          dep_str = f" | 입출금: {d.contribution:,.0f}원" if d.contribution != 0 else ""
+
+          daily_items.append(
+              f"• {date_display}: 자산 {d.assets:,.0f}원 | "
+              f"수익 {profit_sign}{d.profit:,.0f}원 ({d.roi:+.2f}%){dep_str}"
+          )
+
+        daily_section = "\n".join(daily_items)
+        final_msg = f"📈 **일별 자산 및 투자 수익 현황 (최근 {len(recent_daily)}영업일 스냅샷)**\n{daily_section}"
+        await self._send_message(chat_id, final_msg)
+
+      except Exception as exc:
+        logger.exception(f"일별 수익률 조회 CLI 오류: {exc}")
+        await self._send_message(chat_id, f"⚠️ 일별 수익률 정보를 가져오는데 실패했습니다: {exc}")
 
     else:
       await self._send_message(

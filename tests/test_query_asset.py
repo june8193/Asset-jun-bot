@@ -27,6 +27,8 @@ def test_query_asset_summary_success(capsys):
       cumulative_roi=25.0,
       contribution_ratio=80.0,
       profit_ratio=20.0,
+      exchange_rate={"rate": 1300.0, "date": "2026-07-19"},
+      latest_price_date="2026-07-19 14:50"
   )
 
   with patch("scripts.query_asset.get_asset_summary", new_callable=AsyncMock) as mock_get:

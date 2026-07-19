@@ -286,6 +286,7 @@ class TransactionItem(BaseModel):
   memo: str | None = Field(None, description="메모")
   asset_name: str | None = Field(None, description="자산명")
   asset_ticker: str | None = Field(None, description="자산 티커")
+  account_display_name: str | None = Field(None, description="계좌 표시 이름")
 
 
 class TransactionsResponse(BaseModel):
@@ -1072,6 +1073,7 @@ async def get_transactions(
                 memo=item.get("memo"),
                 asset_name=asset_name,
                 asset_ticker=asset_ticker,
+                account_display_name=item.get("account_display_name"),
             )
         )
       return TransactionsResponse(transactions=transactions)

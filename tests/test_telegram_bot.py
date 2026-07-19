@@ -575,9 +575,6 @@ async def test_telegram_bot_cli_asset(mock_config, mock_agent_runner, monkeypatc
   req_body = send_message_route.calls.last.request.read().decode("utf-8")
   assert "통합 자산 현황" in req_body
   assert "443,152,245" in req_body
-  assert "일반주식" in req_body
-  assert "목표: 45.0%" in req_body
-  assert "차액: -5,566,108" in req_body
   assert "2026-07-12" in req_body
   assert "2026-06-06" in req_body
 
@@ -614,6 +611,198 @@ async def test_telegram_bot_restart_notification(mock_config, mock_agent_runner,
   req_body = send_message_route.calls.last.request.read().decode("utf-8")
   assert "재시작이 완료되었습니다" in req_body
   assert not os.path.exists(flag_file)
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_telegram_bot_cli_ratio(mock_config, mock_agent_runner, monkeypatch):
+  """/ratio 명령어를 보냈을 때 대분류/소분류 비중 리밸런싱 정보를 정상 수신하여 조립하는지 테스트합니다."""
+  monkeypatch.setenv("ASSET_MANAGER_API_URL", "http://mock-asset-server")
+  mock_chat_history_manager = AsyncMock(spec=ChatHistoryManager)
+  bot = TelegramBot(config=mock_config, agent_runner=mock_agent_runner, chat_history_manager=mock_chat_history_manager)
+
+  updates_response = {
+      "ok": True,
+      "result": [{
+          "update_id": 900,
+          "message": {
+              "message_id": 1,
+              "chat": {"id": 12345, "type": "private"},
+              "text": "/ratio",
+          },
+      }],
+  }
+  respx.get("https://api.telegram.org/botmock_bot_token/getUpdates").mock(return_value=Response(200, json=updates_response))
+
+  ratios_json = {
+      "total_valuation": 443152244.98,
+      "total_target": 443000000.0,
+      "additional_cash": 0.0,
+      "major_results": [{
+          "category": "일반주식",
+          "current_amt": 193852402.33,
+          "current_ratio": 43.7,
+          "target_percentage": 45.0,
+          "target_amt": 199418510.0,
+          "diff_amt": -5566108.0
+      }],
+      "sub_results": [{
+          "category": "국내주식",
+          "parent_category": "일반주식",
+          "current_amt": 93852402.33,
+          "current_ratio": 21.2,
+          "target_percentage": 20.0,
+          "target_amt": 88600000.0,
+          "diff_amt": 5252402.0
+      }]
+  }
+  respx.get("http://mock-asset-server/api/ratios/rebalancing").mock(return_value=Response(200, json=ratios_json))
+
+  send_message_route = respx.post("https://api.telegram.org/botmock_bot_token/sendMessage").mock(return_value=Response(200, json={"ok": True}))
+  respx.post("https://api.telegram.org/botmock_bot_token/sendChatAction").mock(return_value=Response(200, json={"ok": True}))
+
+  await bot.poll_once(offset=None)
+  assert send_message_route.called
+  req_body = send_message_route.calls.last.request.read().decode("utf-8")
+  assert "대분류 비중" in req_body
+  assert "소분류 비중" in req_body
+  assert "일반주식" in req_body
+  assert "국내주식" in req_body
+  assert "차액: -5,566,108" in req_body
+  assert "차액: +5,252,402" in req_body
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_telegram_bot_cli_tx(mock_config, mock_agent_runner, monkeypatch):
+  """/tx 명령어를 보냈을 때 최근 거래내역을 계좌명과 함께 수신하고 슬라이싱 표시하는지 테스트합니다."""
+  monkeypatch.setenv("ASSET_MANAGER_API_URL", "http://mock-asset-server")
+  mock_chat_history_manager = AsyncMock(spec=ChatHistoryManager)
+  bot = TelegramBot(config=mock_config, agent_runner=mock_agent_runner, chat_history_manager=mock_chat_history_manager)
+
+  updates_response = {
+      "ok": True,
+      "result": [{
+          "update_id": 910,
+          "message": {
+              "message_id": 1,
+              "chat": {"id": 12345, "type": "private"},
+              "text": "/tx 2",
+          },
+      }],
+  }
+  respx.get("https://api.telegram.org/botmock_bot_token/getUpdates").mock(return_value=Response(200, json=updates_response))
+
+  txs_json = [
+      {
+          "id": 1,
+          "account_id": 10,
+          "asset_id": 20,
+          "transaction_date": "2026-07-19",
+          "type": "BUY",
+          "quantity": 10.0,
+          "price": 75000.0,
+          "total_amount": 750000.0,
+          "currency": "KRW",
+          "exchange_rate": 1.0,
+          "memo": "삼성전자 매수",
+          "asset_name": "삼성전자",
+          "asset_ticker": "005930",
+          "account_display_name": "KB증권 (일반 주식)"
+      }
+  ]
+  respx.get("http://mock-asset-server/api/db/transactions").mock(return_value=Response(200, json=txs_json))
+
+  send_message_route = respx.post("https://api.telegram.org/botmock_bot_token/sendMessage").mock(return_value=Response(200, json={"ok": True}))
+  respx.post("https://api.telegram.org/botmock_bot_token/sendChatAction").mock(return_value=Response(200, json={"ok": True}))
+
+  await bot.poll_once(offset=None)
+  assert send_message_route.called
+  req_body = send_message_route.calls.last.request.read().decode("utf-8")
+  assert "최근 거래 내역" in req_body
+  assert "삼성전자" in req_body
+  assert "KB증권 (일반 주식)" in req_body
+  assert "750,000" in req_body
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_telegram_bot_cli_yearly_daily(mock_config, mock_agent_runner, monkeypatch):
+  """/yearly 및 /daily 명령어를 보냈을 때 연도별/일별 수익률 및 스냅샷 자산 상태를 표시하는지 테스트합니다."""
+  monkeypatch.setenv("ASSET_MANAGER_API_URL", "http://mock-asset-server")
+  mock_chat_history_manager = AsyncMock(spec=ChatHistoryManager)
+  bot = TelegramBot(config=mock_config, agent_runner=mock_agent_runner, chat_history_manager=mock_chat_history_manager)
+
+  # 1. /yearly 테스트
+  updates_yearly = {
+      "ok": True,
+      "result": [{
+          "update_id": 920,
+          "message": {
+              "message_id": 1,
+              "chat": {"id": 12345, "type": "private"},
+              "text": "/yearly",
+          },
+      }],
+  }
+  respx.get("https://api.telegram.org/botmock_bot_token/getUpdates").mock(return_value=Response(200, json=updates_yearly))
+
+  yearly_json = [
+      {
+          "year": 2026,
+          "contribution": 10000000.0,
+          "profit": 5000000.0,
+          "roi": 5.0,
+          "assets": 150000000.0,
+          "increase": 15000000.0
+      }
+  ]
+  respx.get("http://mock-asset-server/api/dashboard/yearly").mock(return_value=Response(200, json=yearly_json))
+
+  send_message_route = respx.post("https://api.telegram.org/botmock_bot_token/sendMessage").mock(return_value=Response(200, json={"ok": True}))
+  respx.post("https://api.telegram.org/botmock_bot_token/sendChatAction").mock(return_value=Response(200, json={"ok": True}))
+
+  await bot.poll_once(offset=None)
+  assert send_message_route.called
+  req_body = send_message_route.calls.last.request.read().decode("utf-8")
+  assert "연도별 자산 및 투자 수익" in req_body
+  assert "2026년" in req_body
+  assert "150,000,000" in req_body
+
+  # 2. /daily 테스트
+  respx.clear()
+  updates_daily = {
+      "ok": True,
+      "result": [{
+          "update_id": 930,
+          "message": {
+              "message_id": 2,
+              "chat": {"id": 12345, "type": "private"},
+              "text": "/daily 3",
+          },
+      }],
+  }
+  respx.get("https://api.telegram.org/botmock_bot_token/getUpdates").mock(return_value=Response(200, json=updates_daily))
+
+  daily_json = [
+      {
+          "date": "2026-07-19",
+          "contribution": 0.0,
+          "profit": 1200000.0,
+          "roi": 0.8,
+          "assets": 150000000.0,
+          "increase": 1200000.0
+      }
+  ]
+  respx.get("http://mock-asset-server/api/dashboard/daily").mock(return_value=Response(200, json=daily_json))
+  send_message_route_daily = respx.post("https://api.telegram.org/botmock_bot_token/sendMessage").mock(return_value=Response(200, json={"ok": True}))
+  respx.post("https://api.telegram.org/botmock_bot_token/sendChatAction").mock(return_value=Response(200, json={"ok": True}))
+
+  await bot.poll_once(offset=None)
+  assert send_message_route_daily.called
+  req_body_daily = send_message_route_daily.calls.last.request.read().decode("utf-8")
+  assert "일별 자산 및 투자 수익" in req_body_daily
+  assert "150,000,000" in req_body_daily
 
 
 
