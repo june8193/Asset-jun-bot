@@ -16,6 +16,7 @@ from .asset_client import (
     get_transactions,
     get_yearly_stats,
     get_daily_stats,
+    sync_kiwoom_transactions,
 )
 import datetime
 
@@ -343,7 +344,8 @@ class TelegramBot:
           "• /ratio: 대분류 및 소분류 자산 비중과 목표비중 리밸런싱 현황을 조회합니다.\n"
           "• /tx 또는 /transactions [개수]: 최근 거래내역을 조회합니다. (기본 5개)\n"
           "• /yearly: 연도별 자산 통계 및 수익률을 조회합니다.\n"
-          "• /daily [일수]: 스냅샷 기준 일별 자산 및 수익 현황을 조회합니다. (기본 7일)"
+          "• /daily [일수]: 스냅샷 기준 일별 자산 및 수익 현황을 조회합니다. (기본 7일)\n"
+          "• /sync [일수]: 키움증권 거래내역을 수동으로 동기화합니다. (기본 7일)"
       )
       await self._send_message(chat_id, help_msg)
 
@@ -608,6 +610,27 @@ class TelegramBot:
         logger.exception(f"일별 수익률 조회 CLI 오류: {exc}")
         await self._send_message(chat_id, f"⚠️ 일별 수익률 정보를 가져오는데 실패했습니다: {exc}")
 
+    elif cmd == "/sync":
+      tokens = text.strip().split()
+      days = 7
+      if len(tokens) > 1:
+        try:
+          days = int(tokens[1])
+          if days <= 0:
+            days = 7
+        except ValueError:
+          pass
+
+      await self._send_chat_action(chat_id, "typing")
+      await self._send_message(chat_id, f"🔄 키움증권으로부터 {days}일간의 거래내역 동기화를 시작합니다...")
+      try:
+        result = await sync_kiwoom_transactions(days=days)
+        msg = self._format_sync_result_message(result)
+        await self._send_message(chat_id, msg)
+      except Exception as exc:
+        logger.exception(f"거래내역 동기화 CLI 오류: {exc}")
+        await self._send_message(chat_id, f"⚠️ 동기화 중 오류가 발생했습니다: {exc}")
+
     else:
       await self._send_message(
           chat_id,
@@ -628,16 +651,132 @@ class TelegramBot:
     logger.info("Telegram 롱 폴링 루프를 실행합니다.")
     offset = None
 
-    while stop_event is None or not stop_event.is_set():
-      try:
-        offset = await self.poll_once(offset)
-      except Exception as exc:
-        logger.error(f"폴링 처리 중 예외 발생: {exc}")
-        # 오류 발생 시 루프 폭주를 막기 위해 3초 대기
-        await asyncio.sleep(3.0)
+    # 자동 동기화 백그라운드 스케줄러 태스크 구동
+    scheduler_task = asyncio.create_task(self._run_scheduler_loop())
 
-      # CPU 점유 방지를 위한 최소한의 컨텍스트 스위칭 대기
-      await asyncio.sleep(0.1)
+    try:
+      while stop_event is None or not stop_event.is_set():
+        try:
+          offset = await self.poll_once(offset)
+        except Exception as exc:
+          logger.error(f"폴링 처리 중 예외 발생: {exc}")
+          # 오류 발생 시 루프 폭주를 막기 위해 3초 대기
+          await asyncio.sleep(3.0)
+
+        # CPU 점유 방지를 위한 최소한의 컨텍스트 스위칭 대기
+        await asyncio.sleep(0.1)
+    finally:
+      logger.info("폴링 루프 종료: 스케줄러를 정지합니다.")
+      scheduler_task.cancel()
+      try:
+        await scheduler_task
+      except asyncio.CancelledError:
+        pass
+
+  async def _run_scheduler_loop(self) -> None:
+    """18:10(국내장 마감) 및 07:10(미국장 마감)에 자동으로 동기화를 실행하는 백그라운드 루프입니다."""
+    logger.info("거래내역 자동 동기화 백그라운드 스케줄러 시작")
+    last_domestic_date = None
+    last_overseas_date = None
+
+    while True:
+      try:
+        now = datetime.datetime.now()
+        # 평일 여부 (0: 월, 1: 화, 2: 수, 3: 목, 4: 금, 5: 토, 6: 일)
+        weekday = now.weekday()
+
+        # 1. 국내 장마감 동기화 (평일 18:10)
+        if weekday in [0, 1, 2, 3, 4] and now.hour == 18 and now.minute == 10:
+          today_date = now.date()
+          if last_domestic_date != today_date:
+            last_domestic_date = today_date
+            logger.info("국내 장 마감 자동 동기화 트리거")
+            await self._execute_auto_sync()
+
+        # 2. 미국 장마감 동기화 (화~토 07:10)
+        if weekday in [1, 2, 3, 4, 5] and now.hour == 7 and now.minute == 10:
+          today_date = now.date()
+          if last_overseas_date != today_date:
+            last_overseas_date = today_date
+            logger.info("미국 장 마감 자동 동기화 트리거")
+            await self._execute_auto_sync()
+
+      except asyncio.CancelledError:
+        logger.info("자동 동기화 스케줄러 루프 취소됨.")
+        break
+      except Exception as exc:
+        logger.error(f"스케줄러 루프 오류 발생: {exc}")
+
+      # 30초마다 체크
+      await asyncio.sleep(30)
+
+  async def _execute_auto_sync(self) -> None:
+    """자동 동기화를 실행하고 등록된 모든 사용자에게 알림을 발송합니다."""
+    try:
+      # 당일 하루치 동기화
+      result = await sync_kiwoom_transactions(days=1)
+      msg = self._format_sync_result_message(result)
+      
+      # 등록된 모든 허가 사용자에게 알림 발송
+      for tid in self.config.telegram_allowed_user_ids:
+        await self._send_message(tid, msg)
+    except Exception as exc:
+      logger.exception(f"자동 동기화 실행 실패: {exc}")
+      for tid in self.config.telegram_allowed_user_ids:
+        await self._send_message(tid, f"⚠️ 거래내역 자동 동기화 실행 중 오류가 발생했습니다: {exc}")
+
+  def _format_sync_result_message(self, result: dict) -> str:
+    """동기화 결과를 텔레그램 마크다운 포맷으로 가공합니다."""
+    success_count = result.get("success_count", 0)
+    pending_count = result.get("pending_count", 0)
+    synced = result.get("synced_transactions", [])
+    pending = result.get("unregistered_assets", [])
+    
+    lines = ["🤖 **키움증권 거래내역 자동 동기화 결과**\n"]
+    
+    # 성공 내역
+    lines.append(f"✅ **성공적으로 저장된 거래 ({success_count}건)**")
+    if success_count > 0:
+      for tx in synced:
+        t_type = "매수" if tx["type"] == "BUY" else ("매도" if tx["type"] == "SELL" else "배당")
+        
+        if t_type == "배당":
+          if tx["currency"] == "USD":
+            lines.append(f"• [배당] {tx['asset_name']} | 배당금 입금 | 총 ${tx['price']:,.2f}")
+          else:
+            lines.append(f"• [배당] {tx['asset_name']} | 배당금 입금 | 총 {tx['price']:,.0f}원")
+        else:
+          price_str = f"${tx['price']:,.2f}" if tx["currency"] == "USD" else f"{tx['price']:,.0f}원"
+          total_str = f"${tx['total_amount']:,.2f}" if tx["currency"] == "USD" else f"{tx['total_amount']:,.0f}원"
+          
+          lines.append(
+              f"• [{t_type}] {tx['asset_name']} | {tx['quantity']:,.0f}주 | {price_str} (총 {total_str})"
+          )
+    else:
+      lines.append("• 새롭게 감지된 거래가 없습니다.")
+      
+    lines.append("")
+    
+    # 미등록 내역
+    lines.append(f"⚠️ **자산 마스터 미등록으로 저장이 생략된 거래 ({pending_count}건)**")
+    if pending_count > 0:
+      lines.append("아래 종목은 시스템 자산 목록에 등록되어 있지 않아 거래내역을 저장하지 못했습니다. 웹에서 해당 자산을 추가 등록하신 후 `/sync` 명령어를 통해 재동기화해 주세요.")
+      for tx in pending:
+        t_type = "매수" if tx["type"] == "BUY" else ("매도" if tx["type"] == "SELL" else "배당")
+        price_str = f"${tx['price']:,.2f}" if tx["currency"] == "USD" else f"{tx['price']:,.0f}원"
+        total_str = f"${tx['total_amount']:,.2f}" if tx["currency"] == "USD" else f"{tx['total_amount']:,.0f}원"
+        
+        lines.append(
+            f"• **{tx['name']} ({tx['ticker']})**\n"
+            f"  - 누락 거래: [{t_type}] {tx['quantity']:,.0f}주 | {price_str} (총 {total_str})"
+        )
+    else:
+      lines.append("• 미등록 스킵된 거래가 없습니다.")
+      
+    lines.append("")
+    lines.append("👉 [웹에서 자산 등록하기](http://localhost:5173/assets)")
+    
+    return "\n".join(lines)
 
 
 def markdown_to_html(text: str) -> str:

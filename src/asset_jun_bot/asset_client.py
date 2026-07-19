@@ -1090,6 +1090,45 @@ async def get_transactions(
     raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
 
 
+async def sync_kiwoom_transactions(days: int = 7) -> dict:
+  """키움증권 거래내역 동기화 API를 호출합니다.
+
+  Args:
+      days: 동기화할 일수 범위 (기본값 7)
+
+  Returns:
+      dict: 동기화 작업 결과 요약 데이터
+
+  Raises:
+      AssetClientError: 설정 로드 실패, HTTP 호출 실패 또는 네트워크 오류 발생 시
+  """
+  try:
+    config = Config.load()
+  except ValueError as err:
+    raise AssetClientError(f"설정 로드 중 오류 발생: {err}") from err
+
+  url = f"{config.asset_manager_api_url}/api/kiwoom/sync-transactions"
+  params = {"days": days}
+
+  try:
+    async with httpx.AsyncClient(timeout=30.0) as client:
+      response = await client.post(url, params=params)
+      response.raise_for_status()
+      return response.json()
+
+  except httpx.HTTPStatusError as exc:
+    raise AssetClientError(
+        f"AssetManager API 호출 실패 (HTTP 오류 코드: {exc.response.status_code})"
+    ) from exc
+  except httpx.RequestError as exc:
+    raise AssetClientError(
+        f"AssetManager API 서버 연결 네트워크 오류: {exc}"
+    ) from exc
+  except Exception as exc:
+    raise AssetClientError(f"알 수 없는 오류 발생: {exc}") from exc
+
+
+
 
 
 
