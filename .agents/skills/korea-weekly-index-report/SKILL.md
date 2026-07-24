@@ -34,7 +34,7 @@ description: Generate, save, and convert the weekly KOSPI/KOSDAQ index status re
 - [ ] **분석 정보 요약**: 조회한 일일 보고서들로부터 날짜별 종합 분석 요점 및 주요 시장 이벤트를 추출합니다.
 
 ### 3단계: 주간 지수 변동 데이터 조회
-- [ ] **주간 지수 변동 분석 획득**: `assetmanager` MCP 도구의 `get_market_history(tickers="^KS11,^KQ11", start_date="[1단계의 시작일 YYYY-MM-DD]", end_date="[1단계의 종료일 YYYY-MM-DD]")`를 호출하여 지정된 주간 범위의 역사적 지수 데이터를 조회합니다.
+- [ ] **주간 지수 변동 분석 획득**: 쉘 명령어 실행 도구를 통해 `uv run python scripts/query_market.py --action history --tickers "^KS11,^KQ11" --start-date "[1단계의 시작일 YYYY-MM-DD]" --end-date "[1단계의 종료일 YYYY-MM-DD]"` 명령을 실행하여 지정된 주간 범위의 역사적 지수 데이터 및 변동 분석 결과를 조회합니다.
 - [ ] **지수 변동 계산**: 반환받은 지수 이력 데이터(일자별 `close_price` 목록)를 바탕으로 각 지수별 변동 결과를 직접 계산합니다.
   - 날짜순으로 정렬한 뒤 가장 첫 날짜의 종가(시작가)와 가장 마지막 날짜의 종가(종료가)를 식별합니다.
   - 변동금액 = `종료가 - 시작가`

@@ -19,12 +19,12 @@ description: Generate, save, and convert the daily KOSPI/KOSDAQ index status rep
 
 ### 0단계: 주말 및 휴장일 여부 확인 (Pre-check)
 ### 0단계: 주말 및 휴장일 여부 확인 (Pre-check)
-- [ ] **휴장일 판정 도구 실행**: `assetmanager` MCP 도구의 `check_market_holiday(country="KR")`를 호출하여 한국 시장 휴장일 정보(`date`, `country`, `is_holiday`, `description`)를 확인합니다.
-- [ ] **휴장일 상태 정보 보존**: `is_holiday` 값과 `description` 값을 기억하여 이후 단계에서 분기 처리에 활용합니다. 만약 `is_holiday`가 `True`인 경우(휴장일/주말), 1단계(지수 및 뉴스 수집)와 3단계(PDF 변환)를 생략하고 즉시 2단계로 건너뛰어 간이 보고서를 작성한 후, 4단계를 수행하고 조기 종료합니다.
+- [ ] **휴장일 판정 도구 실행**: 쉘 명령어 실행 도구를 통해 `uv run python scripts/query_market.py --action holiday --country KR` 명령을 실행하여 한국 시장 휴장일 정보(`DATE`, `COUNTRY`, `IS_HOLIDAY`, `DESCRIPTION`)를 확인합니다.
+- [ ] **휴장일 상태 정보 보존**: `IS_HOLIDAY` 값과 `DESCRIPTION` 값을 기억하여 이후 단계에서 분기 처리에 활용합니다. 만약 `IS_HOLIDAY`가 `True`인 경우(휴장일/주말), 1단계(지수 및 뉴스 수집)와 3단계(PDF 변환)를 생략하고 즉시 2단계로 건너뛰어 간이 보고서를 작성한 후, 4단계를 수행하고 조기 종료합니다.
 
 ### 1단계: 지수 데이터 및 뉴스 수집
 - [ ] **지수 데이터 조회 선택**:
-  - `is_holiday`가 `False`인 경우(정상 영업일): `assetmanager` MCP 도구의 `get_market_indices(country="KR")`를 호출하여 오늘 마감된 KOSPI 및 KOSDAQ 지수와 전일비 등락률 데이터를 획득합니다.
+  - `IS_HOLIDAY`가 `False`인 경우(정상 영업일): 쉘 명령어 실행 도구를 통해 `uv run python scripts/query_market.py --action indices --country KR` 명령을 실행하여 오늘 마감된 KOSPI 및 KOSDAQ 지수와 전일비 등락률 데이터를 획득합니다.
   - `is_holiday`가 `True`인 경우(휴장일/주말): 지수 조회 및 뉴스 수집 단계를 건너뛰고 2단계로 진행합니다.
 - [ ] **시장 뉴스 API 검색 규칙**: 평일(is_holiday=false)인 경우에만 쉘 명령어 실행 도구(`run_command` 등)를 통해 전용 CLI 스크립트(`uv run python scripts/query_news.py`)를 실행하여 신뢰도 높은 네이버 뉴스를 수집합니다. 다음 가이드라인을 반드시 준수합니다:
   - **1차 필수 검색 실행**: 오늘 날짜(YYYY-MM-DD 및 YYYY년 MM월 DD일 형식)를 활용하여 다음 2개의 명령을 각각 1회씩(총 2회) 실행해 당일의 핵심 뉴스들을 수집합니다.
