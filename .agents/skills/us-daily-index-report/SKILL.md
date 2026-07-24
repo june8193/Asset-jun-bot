@@ -18,12 +18,13 @@ description: Generate, save, and convert the daily S&P 500/NASDAQ/DOW index stat
 에이전트는 아래 체크리스트와 가이드에 따라 필요한 도구를 직접 호출하여 작업을 수행합니다.
 
 ### 0단계: 주말 및 휴장일 여부 확인 (Pre-check)
-- [ ] **휴장일 판정 도구 실행**: MCP 도구 호출 기능(`call_mcp_tool`)을 통해 `ServerName="assetmanager"`, `ToolName="check_market_holiday"`, `Arguments={"country": "US"}` 형식으로 호출하여 미국 시장 휴장일 정보(`date`, `country`, `is_holiday`, `description`)를 확인합니다.
+### 0단계: 주말 및 휴장일 여부 확인 (Pre-check)
+- [ ] **휴장일 판정 도구 실행**: `assetmanager` MCP 도구의 `check_market_holiday(country="US")`를 호출하여 미국 시장 휴장일 정보(`date`, `country`, `is_holiday`, `description`)를 확인합니다.
 - [ ] **휴장일 상태 정보 보존**: `is_holiday` 값과 `description` 값을 기억하여 이후 단계에서 분기 처리에 활용합니다. 만약 `is_holiday`가 `True`인 경우(휴장일/주말), 1단계(지수 및 뉴스 수집/번역)와 3단계(PDF 변환)를 생략하고 즉시 2단계로 건너뛰어 간이 보고서를 작성한 후, 4단계를 수행하고 조기 종료합니다.
 
 ### 1단계: 지수 데이터 및 뉴스 수집
 - [ ] **지수 데이터 조회 선택**:
-  - `is_holiday`가 `False`인 경우(정상 영업일): MCP 도구 호출 기능(`call_mcp_tool`)을 통해 `ServerName="assetmanager"`, `ToolName="get_market_indices"`, `Arguments={"country": "US"}` 형식으로 호출하여 오늘 마감된 미국 3대 지수(S&P 500, NASDAQ, DOW JONES) 데이터를 획득합니다.
+  - `is_holiday`가 `False`인 경우(정상 영업일): `assetmanager` MCP 도구의 `get_market_indices(country="US")`를 호출하여 오늘 마감된 미국 3대 지수(S&P 500, NASDAQ, DOW JONES) 데이터를 획득합니다.
   - `is_holiday`가 `True`인 경우(휴장일/주말): 지수 조회 및 뉴스 수집/번역 단계를 건너뛰고 2단계로 진행합니다.
 - [ ] **시장 뉴스 검색**: 평일(is_holiday=false)인 경우에만 쉘 명령어 실행 도구(`run_command` 등)를 통해 전용 CLI 스크립트(`uv run python scripts/query_us_news.py --limit 5`)를 실행하여 yfinance 상의 최신 미국 뉴스를 수집합니다. (※ 이 스크립트는 본문 없이 뉴스 제목, 링크, 언론사 정보만 반환하므로, 상세 요약을 위해서는 추가 검색 도구가 필요할 수 있습니다.)
 - [ ] **영문 뉴스 AI 번역 및 요약**: 평일(is_holiday=false)인 경우에만 수집된 영문 뉴스 리스트를 Gemini 모델(자기 자신)을 통해 자연스러운 한국어로 번역하고 핵심 내용을 간략하게 요약합니다.
