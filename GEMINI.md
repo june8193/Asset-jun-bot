@@ -34,3 +34,18 @@
     - `rm -rf` -> `Remove-Item -Recurse -Force`
 - **macOS 및 Linux (Bash, Zsh 등) 환경인 경우**:
   - 표준 Unix 계열 명령어와 연산자(`&&`, `2>/dev/null`, `rm -rf`, `grep` 등)를 그대로 사용합니다.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical triage roles mapped to standard label strings. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repository layout (`CONTEXT.md` and `docs/adr/`). See `docs/agents/domain.md`.
+
