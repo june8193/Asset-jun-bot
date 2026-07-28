@@ -48,6 +48,7 @@ from .market_api import (
     resolve_redirect_url,
     get_market_history,
     get_stock_prices,
+    get_system_task_status,
 )
 
 __all__ = [
@@ -89,4 +90,5 @@ __all__ = [
     "resolve_redirect_url",
     "get_market_history",
     "get_stock_prices",
+    "get_system_task_status",
 ]

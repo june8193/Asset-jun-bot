@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""TelegramScheduler 자동 동기화 메시지 미발송 조건에 대한 단위 테스트입니다."""
+"""TelegramScheduler 자동 동기화 및 백엔드 태스크 모니터링 단위 테스트입니다."""
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -112,3 +112,63 @@ async def test_execute_auto_sync_with_pending_transactions_sends_telegram_messag
 
   # 텔레그램 메시지가 전송되어야 함
   mock_client.send_message.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_check_backend_task_status_sends_telegram_on_new_error(
+    mock_client, mock_config
+):
+  """백엔드 태스크 상태 API에서 신규 에러 발생 감지 시 텔레그램 알림을 발송하는지 검증합니다."""
+  scheduler = TelegramScheduler(client=mock_client, config=mock_config)
+
+  error_status = {
+      "price_update": {
+          "status": "failed",
+          "last_error": "yfinance 시세조회 타임아웃",
+          "last_error_time": "2026-07-28T22:00:00",
+      },
+      "db_backup": {"status": "success"},
+      "stock_sync": {"status": "success"},
+  }
+
+  with patch(
+      "asset_jun_bot.telegram_bot.scheduler.get_system_task_status",
+      new_callable=AsyncMock,
+      return_value=error_status,
+  ):
+    await scheduler._check_backend_task_status()
+
+  # 에러 텔레그램 메시지가 전송되어야 함
+  mock_client.send_message.assert_called_once()
+  call_args = mock_client.send_message.call_args[0]
+  assert call_args[0] == 12345
+  assert "yfinance 시세조회 타임아웃" in call_args[1]
+
+
+@pytest.mark.asyncio
+async def test_check_backend_task_status_ignores_already_notified_error(
+    mock_client, mock_config
+):
+  """동일한 에러 타임스탬프에 대해 중복 알림을 발송하지 않는지 검증합니다."""
+  scheduler = TelegramScheduler(client=mock_client, config=mock_config)
+
+  error_status = {
+      "price_update": {
+          "status": "failed",
+          "last_error": "yfinance 시세조회 타임아웃",
+          "last_error_time": "2026-07-28T22:00:00",
+      }
+  }
+
+  with patch(
+      "asset_jun_bot.telegram_bot.scheduler.get_system_task_status",
+      new_callable=AsyncMock,
+      return_value=error_status,
+  ):
+    # 첫 번째 호출: 알림 발송됨
+    await scheduler._check_backend_task_status()
+    assert mock_client.send_message.call_count == 1
+
+    # 두 번째 호출: 동일 에러이므로 중복 발송 생략
+    await scheduler._check_backend_task_status()
+    assert mock_client.send_message.call_count == 1

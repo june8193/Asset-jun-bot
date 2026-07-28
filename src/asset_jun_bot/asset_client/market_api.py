@@ -216,3 +216,18 @@ async def get_stock_prices(
       )
   except Exception as exc:
     handle_api_exception(exc)
+
+
+async def get_system_task_status() -> dict:
+  """AssetManager API로부터 백그라운드 주기적 태스크 실행 및 에러 상태를 조회하여 반환합니다."""
+  config = load_config()
+  url = f"{config.asset_manager_api_url}/api/v1/system/tasks/status"
+
+  try:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+      response = await client.get(url)
+      response.raise_for_status()
+      return response.json()
+  except Exception as exc:
+    handle_api_exception(exc, f"시스템 태스크 상태 조회 실패 (URL: {url})")
+    return {}
