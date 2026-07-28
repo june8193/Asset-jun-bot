@@ -66,6 +66,14 @@ class TelegramScheduler:
     try:
       # 당일 하루치 동기화
       result = await sync_kiwoom_transactions(days=1)
+
+      # 성공 내역 또는 미등록 내역이 있는 경우에만 메시지 발송
+      success_count = result.get("success_count", 0)
+      pending_count = result.get("pending_count", 0)
+      if success_count == 0 and pending_count == 0:
+        logger.info("새로 감지된 거래 및 미등록 자산 거래가 없어 텔레그램 메시지 발송을 생략합니다.")
+        return
+
       msg = format_sync_result_message(result)
 
       # 등록된 모든 허가 사용자에게 알림 발송
