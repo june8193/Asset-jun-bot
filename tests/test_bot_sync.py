@@ -137,3 +137,25 @@ async def test_telegram_bot_cli_sync_success(mock_sync, mock_agent_runner, mock_
   assert "키움증권 거래내역 자동 동기화 결과" in req_body
   assert "삼성전자" in req_body
   assert "NVIDIA" in req_body
+
+
+def test_format_sync_result_message_with_failed_accounts():
+  """failed_accounts 정보가 들어왔을 때 메시지에 실패 계좌 및 사유가 노출되는지 검증합니다."""
+  from asset_jun_bot.telegram_bot.commands import format_sync_result_message
+
+  result = {
+      "status": "success",
+      "success_count": 0,
+      "pending_count": 0,
+      "synced_transactions": [],
+      "unregistered_assets": [],
+      "failed_accounts": [
+          {"account_name": "5526-9093", "error": "could not convert string to float: ''"}
+      ]
+  }
+
+  msg = format_sync_result_message(result)
+  assert "⚠️ **동기화 실패 계좌" in msg
+  assert "5526-9093" in msg
+  assert "could not convert string to float: ''" in msg
+

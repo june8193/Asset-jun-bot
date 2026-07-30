@@ -69,6 +69,13 @@ def format_sync_result_message(result: dict) -> str:
   lines.append("")
   lines.append("👉 [웹에서 자산 등록하기](http://localhost:5173/assets)")
 
+  failed_accounts = result.get("failed_accounts", [])
+  if failed_accounts:
+    lines.append("")
+    lines.append(f"⚠️ **동기화 실패 계좌 ({len(failed_accounts)}개)**")
+    for fa in failed_accounts:
+      lines.append(f"• 계좌 {fa['account_name']}: {fa['error']}")
+
   return "\n".join(lines)
 
 
