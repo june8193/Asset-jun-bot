@@ -42,8 +42,9 @@ def format_sync_result_message(result: dict) -> str:
         price_str = f"${tx['price']:,.2f}" if tx["currency"] == "USD" else f"{tx['price']:,.0f}원"
         total_str = f"${tx['total_amount']:,.2f}" if tx["currency"] == "USD" else f"{tx['total_amount']:,.0f}원"
 
+        tag_str = " [수동 매칭완료]" if tx.get("is_manual_matched") else ""
         lines.append(
-            f"• [{t_type}] {tx['asset_name']} | {tx['quantity']:,.0f}주 | {price_str} (총 {total_str})"
+            f"• [{t_type}] {tx['asset_name']} | {tx['quantity']:,.0f}주 | {price_str} (총 {total_str}){tag_str}"
         )
   else:
     lines.append("• 새롭게 감지된 거래가 없습니다.")
