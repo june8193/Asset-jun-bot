@@ -14,7 +14,7 @@ description: 자산 현황, 자산 비중, 종목 시세 조회 및 투자 원�
 
 ## 2. MCP 도구 매핑
 - **총자산 요약**: `get_asset_summary` (원금, 평가액, ROI)
-- **자산 비중 & 리밸런싱**: `get_asset_ratios` (`diff_amt` > 0 추가매수 필요, < 0 매도/유지)
+- **자산 비중 & 리밸런싱**: `get_asset_ratios` (`diff_amt` > 0 추가매수 필요, < 0 매도/유지. **주의**: `sub_results`의 `current_ratio`는 상위 카테고리 목표액 기준이므로 소분류 표기 시 `current_amt / total_valuation * 100`으로 전체 자산 대비 비중 직접 계산)
 - **관심종목 시세**: `get_watchlist_prices` (`country`: "KR" | "US")
 - **포트폴리오 상세**: `get_portfolio_status` (종목 수량, 평가금, 예수금)
 - **시장 지수 추이**: `get_market_history` (KOSPI, S&P 500 등)

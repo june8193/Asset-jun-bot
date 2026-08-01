@@ -17,10 +17,11 @@ description: Use when requested to audit assets, review trades, or perform perio
 ## 2. 자산 점검 및 투자 복기 워크플로우 단계
 
 ### [1단계] 정보 수집 및 AI 예비 진단
-1. `uv run python scripts/get_storage_dir.py` 실행 ➔ `STORAGE_DIR` 파악
+1. `uv run python scripts/get_storage_dir.py` 실행 ➔ `STORAGE_DIR` 파악 (Windows 환경 파이썬 스크립트 실행 시 `sys.stdout.reconfigure(encoding='utf-8')`로 UTF-8 출력 보장)
 2. `STORAGE_DIR/asset_audits/asset_audit_journal.md` 조회 ➔ `LAST_AUDIT_DATE` 식별 및 **'현재 활성 전략(Active Strategy)'** 확인 (없을 경우 기본값 또는 30일 전)
 3. `LAST_AUDIT_DATE`부터 오늘 사이 주간 리포트 파일 요약 및 `get_market_history` 호출로 KOSPI/S&P500/NASDAQ 지수 변동 수집
 4. `get_snapshots` / `get_asset_ratios` / `get_yearly_stats` 호출로 자산 배분 현황 및 올해 YTD 수익률(ROI) 산출
+   - **자산 비중 산출 주의사항 (중요)**: `get_asset_ratios`의 `sub_results` 응답 중 `current_ratio` 수치는 상위 카테고리 목표액 기준이므로 그대로 표기하지 말고, **`current_amt / total_valuation * 100`으로 전체 자산 대비 비중을 직접 재계산하여 브리핑**한다.
 5. **YTD 벤치마크 수익률 비교**:
    - `get_yearly_stats`의 올해 ROI와 `get_market_history` 기반 S&P 500 YTD 수익률을 비교하여 초과수익률(`Alpha = 포트폴리오 ROI - S&P 500 YTD`) 산출 (KOSPI/NASDAQ은 참고용 수집)
 6. **AI YTD 알파 원인 분석 4대 레이어 (Attribution Analysis)**:
@@ -30,7 +31,7 @@ description: Use when requested to audit assets, review trades, or perform perio
    - **원칙 준수 및 매매 행태**: `get_transactions`로 손절원칙(-15%) 미준수 방치, 잦은 매매, 뇌동매매 여부 대조
 7. `investment-principles.md` 기반 AI 예비 진단 및 조언 도출 (4대 레이어 원인 분석 브리핑 포함)
 - **완료 검증 조건 (Completion Criterion)**:
-  - [ ] 이전 점검일, 현재 전략, 지수 수집, 자산 비중 조회, YTD 벤치마크 Alpha 산출 및 4대 레이어 원인 분석이 준비되었는가?
+  - [ ] 이전 점검일, 현재 전략, 지수 수집, 자산 비중 조회(전체 자산 대비 소분류 비중 재계산 포함), YTD 벤치마크 Alpha 산출 및 4대 레이어 원인 분석이 준비되었는가?
   - [ ] YTD S&P 500 비교 성과 및 팩트 기반 원인 분석이 포함된 현황 브리핑 출력 후 **질문 1개만** 던지고 턴을 멈추어 사용자 답변을 대기하고 있는가?
 
 ### [2단계] 장세 판단 및 리밸런싱/현재 전략 인터뷰 (Grill-Me)

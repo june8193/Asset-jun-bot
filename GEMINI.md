@@ -24,6 +24,7 @@
 ## 3. Python 실행 및 패키지 관리 규칙
 - **원칙**: 모든 파이썬 스크립트 및 도구 실행 시 반드시 `uv`를 사용합니다.
 - **실행 방법**: `uv run <script_path>` 형식을 사용하여 일관된 가상환경 내에서 실행되도록 합니다. (예: `uv run pytest`, `uv run python src/main.py`)
+- **Windows 콘솔 출력 규칙**: Windows 환경에서 한글 경로 및 이모지(🟢, 🔴 등) 출력 시 인코딩 오류(`UnicodeEncodeError`)를 방지하기 위해 파이썬 스크립트 상단에 `sys.stdout.reconfigure(encoding="utf-8")`를 표준으로 추가합니다.
 
 ## 4. Shell 명령어 실행 규칙 (OS 및 환경별 대응)
 - **Windows PowerShell 환경인 경우**:
