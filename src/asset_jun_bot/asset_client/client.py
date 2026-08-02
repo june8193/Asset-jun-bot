@@ -16,12 +16,24 @@ class AssetApiClient:
   """AssetManager 백엔드 API와의 세션, 타임아웃, 예외 변환 및 자동 응답 파싱을 관장하는 클라이언트입니다."""
 
   def __init__(self, base_url: str | None = None, timeout: float = 30.0):
-    """AssetApiClient 인스턴스를 생성합니다."""
+    """AssetApiClient 인스턴스를 생성합니다.
+
+    Args:
+        base_url: AssetManager API 베이스 URL (지정되지 않은 경우 Config에서 자동 로드)
+        timeout: HTTP 요청 타임아웃 초 (기본 30초)
+    """
     self._base_url = base_url
     self.timeout = timeout
 
   def get_base_url(self) -> str:
-    """설정 객체로부터 베이스 URL을 결정하여 반환합니다."""
+    """설정 객체로부터 베이스 URL을 결정하여 반환합니다.
+
+    Returns:
+        트레일링 슬래시가 제거된 베이스 URL 문자열
+
+    Raises:
+        AssetClientError: 설정 로드에 실패한 경우 발생
+    """
     if self._base_url:
       return self._base_url.rstrip("/")
     try:
@@ -31,7 +43,14 @@ class AssetApiClient:
       raise AssetClientError(f"설정 로드 중 오류 발생: {err}") from err
 
   def handle_exception(self, exc: Exception) -> None:
-    """httpx 및 기타 통신 예외를 AssetClientError로 전환하여 발생시킵니다."""
+    """httpx 및 기타 통신 예외를 AssetClientError로 전환하여 발생시킵니다.
+
+    Args:
+        exc: 발생한 원본 예외 객체
+
+    Raises:
+        AssetClientError: 일관되게 정형화된 API 클라이언트 예외
+    """
     if isinstance(exc, AssetClientError):
       raise exc
     elif isinstance(exc, httpx.HTTPStatusError):
@@ -51,7 +70,19 @@ class AssetApiClient:
       params: dict | None = None,
       response_model: Optional[Type[T]] = None,
   ) -> Any:
-    """HTTP GET 요청을 수행하고 결과를 JSON 또는 Pydantic 모델로 변환하여 반환합니다."""
+    """HTTP GET 요청을 수행하고 결과를 JSON 또는 Pydantic 모델로 변환하여 반환합니다.
+
+    Args:
+        endpoint: API 엔드포인트 경로 (예: '/api/dashboard/summary')
+        params: URL 쿼리 파라미터 딕셔너리 (선택 사항)
+        response_model: 자동 파싱할 Pydantic 모델 클래스 (선택 사항)
+
+    Returns:
+        Pydantic 모델 인스턴스 또는 JSON 파싱 데이터
+
+    Raises:
+        AssetClientError: API 호출 실패 또는 네트워크 오류 시 발생
+    """
     base_url = self.get_base_url()
     url = f"{base_url}{endpoint}"
 
@@ -74,7 +105,20 @@ class AssetApiClient:
       json_data: dict | None = None,
       response_model: Optional[Type[T]] = None,
   ) -> Any:
-    """HTTP POST 요청을 수행하고 결과를 JSON 또는 Pydantic 모델로 변환하여 반환합니다."""
+    """HTTP POST 요청을 수행하고 결과를 JSON 또는 Pydantic 모델로 변환하여 반환합니다.
+
+    Args:
+        endpoint: API 엔드포인트 경로
+        params: URL 쿼리 파라미터 딕셔너리 (선택 사항)
+        json_data: POST 요청 JSON 페이로드 (선택 사항)
+        response_model: 자동 파싱할 Pydantic 모델 클래스 (선택 사항)
+
+    Returns:
+        Pydantic 모델 인스턴스 또는 JSON 파싱 데이터
+
+    Raises:
+        AssetClientError: API 호출 실패 또는 네트워크 오류 시 발생
+    """
     base_url = self.get_base_url()
     url = f"{base_url}{endpoint}"
 
@@ -96,5 +140,9 @@ _default_client = AssetApiClient()
 
 
 def get_default_client() -> AssetApiClient:
-  """기본 싱글톤 AssetApiClient 인스턴스를 반환합니다."""
+  """기본 싱글톤 AssetApiClient 인스턴스를 반환합니다.
+
+  Returns:
+      기본 설정된 AssetApiClient 객체
+  """
   return _default_client

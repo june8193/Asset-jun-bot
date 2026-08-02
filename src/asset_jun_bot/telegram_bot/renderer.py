@@ -5,7 +5,7 @@ import collections
 import datetime
 import logging
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
   from ..asset_client.models import (
@@ -20,7 +20,14 @@ logger = logging.getLogger(__name__)
 
 
 def markdown_to_html(text: str) -> str:
-  """마크다운 텍스트를 텔레그램용 HTML 서식으로 변환합니다."""
+  """마크다운 텍스트를 텔레그램용 HTML 서식으로 변환합니다.
+
+  Args:
+      text: 원본 마크다운 텍스트
+
+  Returns:
+      텔레그램 HTML 규격에 맞춰 이스케이프 및 변환된 HTML 텍스트
+  """
   if not text:
     return ""
 
@@ -40,7 +47,14 @@ def markdown_to_html(text: str) -> str:
 
 
 def remove_markdown_markup(text: str) -> str:
-  """텍스트에서 마크다운 마크업 서식을 지우고 일반 텍스트로 변환합니다."""
+  """텍스트에서 마크다운 마크업 서식을 지우고 순수 일반 텍스트로 변환합니다.
+
+  Args:
+      text: 마크다운 서식이 포함된 원본 텍스트
+
+  Returns:
+      서식 기호가 지워진 순수 일반 텍스트
+  """
   if not text:
     return ""
 
@@ -59,8 +73,48 @@ class MessageRenderer:
   """도메인 응답 모델을 텔레그램 규격 마크다운 메시지로 렌더링하는 클래스입니다."""
 
   @staticmethod
+  def _format_currency_amount(
+      price: float,
+      total_amount: float,
+      currency: str,
+      exchange_rate: float | None = None,
+      quantity: float | None = None,
+  ) -> str:
+    """통화별 단가, 총액 및 원화 환산 텍스트를 공통 포맷팅하는 헬퍼 함수입니다.
+
+    Args:
+        price: 거래 단가
+        total_amount: 총 거래 금액
+        currency: 통화 코드 (KRW, USD 등)
+        exchange_rate: 적용 환율 (선택 사항)
+        quantity: 매수/매도 수량 (선택 사항)
+
+    Returns:
+        포맷팅된 금액 및 환율 표시 문자열
+    """
+    unit = "원" if currency == "KRW" else f" {currency}"
+    price_unit = "원" if currency == "KRW" else f" {currency}"
+
+    exch_str = ""
+    if currency != "KRW" and exchange_rate:
+      krw_total = total_amount * exchange_rate
+      exch_str = f" (환율 {exchange_rate:,.1f}원 | 원화 환산 {krw_total:,.0f}원)"
+
+    if quantity is not None and quantity > 0:
+      return f"\n  {quantity:,.2f}주 @ {price:,.2f}{price_unit} | 총 {total_amount:,.2f}{unit}{exch_str}"
+    else:
+      return f"\n  총 {total_amount:,.2f}{unit}{exch_str}"
+
+  @staticmethod
   def render_asset_summary(summary: "AssetSummaryResponse") -> str:
-    """통합 자산 현황 정보를 마크다운 메시지로 렌더링합니다."""
+    """통합 자산 현황 정보를 마크다운 메시지로 렌더링합니다.
+
+    Args:
+        summary: 자산 요약 응답 모델 객체
+
+    Returns:
+        마크다운 포맷의 자산 현황 및 기준 정보 메시지 문자열
+    """
     total_val = summary.total_valuation_krw
     total_principal = summary.total_principal
     total_profit = summary.total_profit
@@ -89,7 +143,14 @@ class MessageRenderer:
 
   @staticmethod
   def render_asset_ratios(ratios: "AssetRatiosResponse") -> str:
-    """자산 비중 및 리밸런싱 정보를 마크다운 메시지로 렌더링합니다."""
+    """자산 비중 및 리밸런싱 정보를 마크다운 메시지로 렌더링합니다.
+
+    Args:
+        ratios: 자산군별 비중 및 리밸런싱 정보 모델 객체
+
+    Returns:
+        마크다운 포맷의 자산 비중 안내 메시지 문자열
+    """
     major_items = []
     for item in ratios.major_results:
       diff_sign = "+" if item.diff_amt >= 0 else ""
@@ -126,7 +187,15 @@ class MessageRenderer:
 
   @staticmethod
   def render_transactions(tx_resp: "TransactionsResponse", limit: int = 5) -> str:
-    """최근 거래내역 목록을 마크다운 메시지로 렌더링합니다."""
+    """최근 거래내역 목록을 마크다운 메시지로 렌더링합니다.
+
+    Args:
+        tx_resp: 거래 내역 목록 응답 모델 객체
+        limit: 표시할 최대 거래 개수 (기본 5개)
+
+    Returns:
+        마크다운 포맷의 최근 거래내역 메시지 문자열
+    """
     transactions = list(tx_resp.transactions)
     transactions.sort(key=lambda x: (x.transaction_date, x.id or 0), reverse=True)
     recent_txs = transactions[:limit]
@@ -156,23 +225,15 @@ class MessageRenderer:
         ticker_info = f" ({tx.asset_ticker})" if tx.asset_ticker else ""
         asset_info = f" - {tx.asset_name}{ticker_info}"
 
-      if tx.type in ["BUY", "SELL"] and tx.quantity > 0:
-        price_unit = "원" if tx.currency == "KRW" else f" {tx.currency}"
-        total_unit = "원" if tx.currency == "KRW" else f" {tx.currency}"
-
-        exch_str = ""
-        if tx.currency != "KRW" and tx.exchange_rate:
-          krw_total = tx.total_amount * tx.exchange_rate
-          exch_str = f" (환율 {tx.exchange_rate:,.1f}원 | 원화 환산 {krw_total:,.0f}원)"
-
-        amt_str = f"\n  {tx.quantity:,.2f}주 @ {tx.price:,.2f}{price_unit} | 총 {tx.total_amount:,.2f}{total_unit}{exch_str}"
-      else:
-        unit = "원" if tx.currency == "KRW" else f" {tx.currency}"
-        exch_str = ""
-        if tx.currency != "KRW" and tx.exchange_rate:
-          krw_total = tx.total_amount * tx.exchange_rate
-          exch_str = f" (원화 환산 {krw_total:,.0f}원)"
-        amt_str = f"\n  총 {tx.total_amount:,.2f}{unit}{exch_str}"
+      is_buy_sell = tx.type in ["BUY", "SELL"] and tx.quantity > 0
+      qty_param = tx.quantity if is_buy_sell else None
+      amt_str = MessageRenderer._format_currency_amount(
+          price=tx.price,
+          total_amount=tx.total_amount,
+          currency=tx.currency,
+          exchange_rate=tx.exchange_rate,
+          quantity=qty_param,
+      )
 
       memo_str = f" [{tx.memo}]" if tx.memo else ""
       tx_items.append(
@@ -184,7 +245,14 @@ class MessageRenderer:
 
   @staticmethod
   def render_yearly_stats(yearly_resp: "YearlyStatsResponse") -> str:
-    """연도별 자산 및 투자 수익 통계를 마크다운 메시지로 렌더링합니다."""
+    """연도별 자산 및 투자 수익 통계를 마크다운 메시지로 렌더링합니다.
+
+    Args:
+        yearly_resp: 연도별 자산 현황 통계 응답 모델 객체
+
+    Returns:
+        마크다운 포맷의 연도별 통계 메시지 문자열
+    """
     stats = list(yearly_resp.stats)
     stats.sort(key=lambda x: x.year, reverse=True)
 
@@ -207,7 +275,15 @@ class MessageRenderer:
 
   @staticmethod
   def render_daily_stats(daily_resp: "DailyStatsResponse", days: int = 7) -> str:
-    """일별 자산 스냅샷 통계를 마크다운 메시지로 렌더링합니다."""
+    """일별 자산 스냅샷 통계를 마크다운 메시지로 렌더링합니다.
+
+    Args:
+        daily_resp: 일별 자산 현황 통계 응답 모델 객체
+        days: 최근 조회 영업일 수 (기본 7일)
+
+    Returns:
+        마크다운 포맷의 일별 통계 메시지 문자열
+    """
     stats = list(daily_resp.stats)
     stats.sort(key=lambda x: x.date, reverse=True)
 
@@ -238,8 +314,15 @@ class MessageRenderer:
     return f"📈 **일별 자산 및 투자 수익 현황 (최근 {len(recent_daily)}영업일 스냅샷)**\n{daily_section}"
 
   @staticmethod
-  def render_sync_result(result: dict) -> str:
-    """동기화 결과 딕셔너리를 마크다운 메시지로 렌더링합니다."""
+  def render_sync_result(result: dict[str, Any]) -> str:
+    """동기화 결과 딕셔너리를 마크다운 메시지로 렌더링합니다.
+
+    Args:
+        result: 키움증권 동기화 결과 데이터 딕셔너리
+
+    Returns:
+        마크다운 포맷의 동기화 결과 리포트 메시지 문자열
+    """
     success_count = result.get("success_count", 0)
     pending_count = result.get("pending_count", 0)
     synced = result.get("synced_transactions", [])

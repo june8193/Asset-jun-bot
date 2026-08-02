@@ -106,6 +106,13 @@ def test_render_transactions():
   assert "(환율 1,350.0원 | 원화 환산 1,350,000원)" in msg
 
 
+def test_render_transactions_empty():
+  """거래내역이 없을 때의 마크다운 메시지 렌더링을 검증합니다."""
+  tx_resp = TransactionsResponse(transactions=[])
+  msg = MessageRenderer.render_transactions(tx_resp)
+  assert msg == "📝 최근 거래 내역이 없습니다."
+
+
 def test_render_yearly_stats():
   """연도별 자산 통계 마크다운 메시지 렌더링을 검증합니다."""
   yearly_resp = YearlyStatsResponse(
@@ -154,7 +161,7 @@ def test_render_sync_result():
   """키움 동기화 결과 마크다운 메시지 렌더링을 검증합니다."""
   result = {
       "success_count": 1,
-      "pending_count": 0,
+      "pending_count": 1,
       "synced_transactions": [{
           "type": "BUY",
           "asset_name": "삼성전자",
@@ -164,12 +171,26 @@ def test_render_sync_result():
           "currency": "KRW",
           "is_manual_matched": True,
       }],
-      "unregistered_assets": [],
-      "failed_accounts": [],
+      "unregistered_assets": [{
+          "type": "BUY",
+          "name": "엔비디아",
+          "ticker": "NVDA",
+          "quantity": 2,
+          "price": 120.0,
+          "total_amount": 240.0,
+          "currency": "USD",
+      }],
+      "failed_accounts": [{
+          "account_name": "위탁1",
+          "error": "비밀번호 오류",
+      }],
   }
 
   msg = MessageRenderer.render_sync_result(result)
 
   assert "🤖 **키움증권 거래내역 자동 동기화 결과**" in msg
   assert "✅ **성공적으로 저장된 거래 (1건)**" in msg
-  assert "• [매수] 삼성전자 | 5주 | 70,000원 (총 350,000원) [수동 매칭완료]" in msg
+  assert "⚠️ **자산 마스터 미등록으로 저장이 생략된 거래 (1건)**" in msg
+  assert "엔비디아 (NVDA)" in msg
+  assert "⚠️ **동기화 실패 계좌 (1개)**" in msg
+  assert "계좌 위탁1: 비밀번호 오류" in msg

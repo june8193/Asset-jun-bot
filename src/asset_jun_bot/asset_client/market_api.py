@@ -185,7 +185,4 @@ async def get_stock_prices(
 async def get_system_task_status() -> dict:
   """AssetManager API로부터 백그라운드 주기적 태스크 실행 및 에러 상태를 조회하여 반환합니다."""
   client = get_default_client()
-  try:
-    return await client.get_json("/api/v1/system/tasks/status")
-  except Exception:
-    return {}
+  return await client.get_json("/api/v1/system/tasks/status")
