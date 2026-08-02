@@ -6,6 +6,7 @@ Pydantic 모델 형태의 구조화된 데이터를 반환하며, 통신 실패 
 """
 
 from ..config import Config
+from .client import AssetApiClient, get_default_client
 from .models import (
     AssetClientError,
     AssetSummaryResponse,
@@ -53,6 +54,8 @@ from .market_api import (
 
 __all__ = [
     "Config",
+    "AssetApiClient",
+    "get_default_client",
     "AssetClientError",
     "AssetSummaryResponse",
     "AssetRatioItem",

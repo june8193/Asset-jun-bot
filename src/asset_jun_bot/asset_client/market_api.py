@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
-"""시장 지수, 휴장일, 관심종목, 시세 및 알림 관련 API 함수 모듈입니다."""
+"""시장 지수, 휴장일, 관심종목, 시세 및 알림 관련 API 함수 모듈입니다 (AssetApiClient 위임)."""
 
 from typing import List, Dict
 import httpx
+from .client import get_default_client
+from .base import load_config, handle_api_exception
 from .models import (
     AssetClientError,
     WatchlistPricesResponse,
@@ -14,84 +16,60 @@ from .models import (
     StockPricesResponse,
     StockPriceItem,
 )
-from .base import load_config, handle_api_exception
 
 
 async def get_watchlist_prices(country: str = "KR") -> WatchlistPricesResponse:
   """AssetManager API로부터 특정 국가의 관심종목 실시간 시세를 조회하여 Pydantic 모델로 반환합니다."""
-  config = load_config()
-  url = f"{config.asset_manager_api_url}/api/watchlist/prices"
+  client = get_default_client()
   params = {"country": country.upper()}
+  data = await client.get_json("/api/watchlist/prices", params=params)
 
-  try:
-    async with httpx.AsyncClient(timeout=10.0) as client:
-      response = await client.get(url, params=params)
-      response.raise_for_status()
-      data = response.json()
+  prices = [
+      WatchlistItemPrice(
+          stock_name=item.get("stock_name", ""),
+          stock_code=item.get("stock_code", ""),
+          current_price=item.get("current_price", 0.0),
+          change_rate=item.get("change_rate", 0.0),
+      )
+      for item in data
+  ]
 
-      prices = [
-          WatchlistItemPrice(
-              stock_name=item.get("stock_name", ""),
-              stock_code=item.get("stock_code", ""),
-              current_price=item.get("current_price", 0.0),
-              change_rate=item.get("change_rate", 0.0),
-          )
-          for item in data
-      ]
-
-      return WatchlistPricesResponse(country=country.upper(), prices=prices)
-  except Exception as exc:
-    handle_api_exception(exc)
+  return WatchlistPricesResponse(country=country.upper(), prices=prices)
 
 
 async def get_market_indices(country: str = "KR") -> MarketIndicesResponse:
   """AssetManager API로부터 KOSPI/KOSDAQ 또는 미국 지수 정보를 조회하여 Pydantic 모델로 반환합니다."""
-  config = load_config()
-  url = f"{config.asset_manager_api_url}/api/market/indices"
+  client = get_default_client()
   params = {"country": country.upper()}
+  data = await client.get_json("/api/market/indices", params=params)
 
-  try:
-    async with httpx.AsyncClient(timeout=10.0) as client:
-      response = await client.get(url, params=params)
-      response.raise_for_status()
-      data = response.json()
+  indices = [
+      MarketIndexItem(
+          index_name=item.get("index_name", ""),
+          current_price=item.get("current_price", 0.0),
+          change_rate=item.get("change_rate", 0.0),
+      )
+      for item in data
+  ]
 
-      indices = [
-          MarketIndexItem(
-              index_name=item.get("index_name", ""),
-              current_price=item.get("current_price", 0.0),
-              change_rate=item.get("change_rate", 0.0),
-          )
-          for item in data
-      ]
-
-      return MarketIndicesResponse(indices=indices)
-  except Exception as exc:
-    handle_api_exception(exc)
+  return MarketIndicesResponse(indices=indices)
 
 
 async def check_market_holiday(date_str: str = "", country: str = "KR") -> MarketHolidayResponse:
   """AssetManager API로부터 특정 날짜의 특정 국가 시장 휴장일 여부를 조회하여 Pydantic 모델로 반환합니다."""
-  config = load_config()
-  url = f"{config.asset_manager_api_url}/api/market/holiday"
+  client = get_default_client()
   params = {"country": country.upper()}
   if date_str:
     params["date"] = date_str
 
-  try:
-    async with httpx.AsyncClient(timeout=10.0) as client:
-      response = await client.get(url, params=params)
-      response.raise_for_status()
-      data = response.json()
+  data = await client.get_json("/api/market/holiday", params=params)
 
-      return MarketHolidayResponse(
-          date=data.get("date", ""),
-          country=data.get("country", country.upper()),
-          is_holiday=data.get("is_holiday", False),
-          description=data.get("description", "영업일"),
-      )
-  except Exception as exc:
-    handle_api_exception(exc)
+  return MarketHolidayResponse(
+      date=data.get("date", ""),
+      country=data.get("country", country.upper()),
+      is_holiday=data.get("is_holiday", False),
+      description=data.get("description", "영업일"),
+  )
 
 
 async def send_telegram_message(message: str, chat_id: int | None = None) -> str:
@@ -156,31 +134,24 @@ async def get_market_history(
     end_date: str | None = None
 ) -> Dict[str, List[MarketHistoryItem]]:
   """AssetManager API로부터 지정된 지수 티커들의 기간별 역사적 가격 및 실시간 현재가를 통합 조회합니다."""
-  config = load_config()
-  url = f"{config.asset_manager_api_url}/api/market/history"
+  client = get_default_client()
   params = {"tickers": ",".join(tickers)}
   if start_date:
     params["start_date"] = start_date
   if end_date:
     params["end_date"] = end_date
 
-  try:
-    async with httpx.AsyncClient(timeout=10.0) as client:
-      response = await client.get(url, params=params)
-      response.raise_for_status()
-      data = response.json()
+  data = await client.get_json("/api/market/history", params=params)
 
-      results = {}
-      for ticker, items in data.items():
-        results[ticker] = [
-            MarketHistoryItem(
-                date=item.get("date", ""),
-                close_price=item.get("close_price", 0.0)
-            ) for item in items
-        ]
-      return results
-  except Exception as exc:
-    handle_api_exception(exc)
+  results = {}
+  for ticker, items in data.items():
+    results[ticker] = [
+        MarketHistoryItem(
+            date=item.get("date", ""),
+            close_price=item.get("close_price", 0.0)
+        ) for item in items
+    ]
+  return results
 
 
 async def get_stock_prices(
@@ -189,45 +160,32 @@ async def get_stock_prices(
     end_date: str | None = None
 ) -> StockPricesResponse:
   """AssetManager API로부터 특정 종목의 현재 및 과거 주가 데이터를 조회하여 Pydantic 모델로 반환합니다."""
-  config = load_config()
-  url = f"{config.asset_manager_api_url}/api/stocks/prices"
+  client = get_default_client()
   params = {"ticker": ticker, "start_date": start_date}
   if end_date:
     params["end_date"] = end_date
 
-  try:
-    async with httpx.AsyncClient(timeout=10.0) as client:
-      response = await client.get(url, params=params)
-      response.raise_for_status()
-      data = response.json()
+  data = await client.get_json("/api/stocks/prices", params=params)
 
-      prices = [
-          StockPriceItem(
-              date=item.get("date", ""),
-              close_price=item.get("close_price", 0.0)
-          ) for item in data.get("prices", [])
-      ]
+  prices = [
+      StockPriceItem(
+          date=item.get("date", ""),
+          close_price=item.get("close_price", 0.0)
+      ) for item in data.get("prices", [])
+  ]
 
-      return StockPricesResponse(
-          ticker=data.get("ticker", ticker),
-          name=data.get("name", ""),
-          market=data.get("market", ""),
-          prices=prices
-      )
-  except Exception as exc:
-    handle_api_exception(exc)
+  return StockPricesResponse(
+      ticker=data.get("ticker", ticker),
+      name=data.get("name", ""),
+      market=data.get("market", ""),
+      prices=prices
+  )
 
 
 async def get_system_task_status() -> dict:
   """AssetManager API로부터 백그라운드 주기적 태스크 실행 및 에러 상태를 조회하여 반환합니다."""
-  config = load_config()
-  url = f"{config.asset_manager_api_url}/api/v1/system/tasks/status"
-
+  client = get_default_client()
   try:
-    async with httpx.AsyncClient(timeout=10.0) as client:
-      response = await client.get(url)
-      response.raise_for_status()
-      return response.json()
-  except Exception as exc:
-    handle_api_exception(exc, f"시스템 태스크 상태 조회 실패 (URL: {url})")
+    return await client.get_json("/api/v1/system/tasks/status")
+  except Exception:
     return {}
