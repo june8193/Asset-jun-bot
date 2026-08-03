@@ -314,6 +314,12 @@ class MessageRenderer:
     return f"📈 **일별 자산 및 투자 수익 현황 (최근 {len(recent_daily)}영업일 스냅샷)**\n{daily_section}"
 
   @staticmethod
+  def _extract_date_suffix(tx: dict[str, Any]) -> str:
+    """거래 딕셔너리에서 traded_at 정보를 추출하여 날짜 접미사 문자열을 반환합니다."""
+    traded_at = tx.get("traded_at")
+    return f" 📅 {traded_at}" if traded_at else ""
+
+  @staticmethod
   def render_sync_result(result: dict[str, Any]) -> str:
     """동기화 결과 딕셔너리를 마크다운 메시지로 렌더링합니다.
 
@@ -334,17 +340,18 @@ class MessageRenderer:
     if success_count > 0:
       for tx in synced:
         t_type = "매수" if tx["type"] == "BUY" else ("매도" if tx["type"] == "SELL" else "배당")
+        date_suffix = MessageRenderer._extract_date_suffix(tx)
         if t_type == "배당":
           if tx["currency"] == "USD":
-            lines.append(f"• [배당] {tx['asset_name']} | 배당금 입금 | 총 ${tx['price']:,.2f}")
+            lines.append(f"• [배당] {tx['asset_name']} | 배당금 입금 | 총 ${tx['price']:,.2f}{date_suffix}")
           else:
-            lines.append(f"• [배당] {tx['asset_name']} | 배당금 입금 | 총 {tx['price']:,.0f}원")
+            lines.append(f"• [배당] {tx['asset_name']} | 배당금 입금 | 총 {tx['price']:,.0f}원{date_suffix}")
         else:
           price_str = f"${tx['price']:,.2f}" if tx["currency"] == "USD" else f"{tx['price']:,.0f}원"
           total_str = f"${tx['total_amount']:,.2f}" if tx["currency"] == "USD" else f"{tx['total_amount']:,.0f}원"
           tag_str = " [수동 매칭완료]" if tx.get("is_manual_matched") else ""
           lines.append(
-              f"• [{t_type}] {tx['asset_name']} | {tx['quantity']:,.0f}주 | {price_str} (총 {total_str}){tag_str}"
+              f"• [{t_type}] {tx['asset_name']} | {tx['quantity']:,.0f}주 | {price_str} (총 {total_str}){tag_str}{date_suffix}"
           )
     else:
       lines.append("• 새롭게 감지된 거래가 없습니다.")
@@ -357,9 +364,10 @@ class MessageRenderer:
         t_type = "매수" if tx["type"] == "BUY" else ("매도" if tx["type"] == "SELL" else "배당")
         price_str = f"${tx['price']:,.2f}" if tx["currency"] == "USD" else f"{tx['price']:,.0f}원"
         total_str = f"${tx['total_amount']:,.2f}" if tx["currency"] == "USD" else f"{tx['total_amount']:,.0f}원"
+        date_suffix = MessageRenderer._extract_date_suffix(tx)
         lines.append(
             f"• **{tx['name']} ({tx['ticker']})**\n"
-            f"  - 누락 거래: [{t_type}] {tx['quantity']:,.0f}주 | {price_str} (총 {total_str})"
+            f"  - 누락 거래: [{t_type}] {tx['quantity']:,.0f}주 | {price_str} (총 {total_str}){date_suffix}"
         )
     else:
       lines.append("• 미등록 스킵된 거래가 없습니다.")

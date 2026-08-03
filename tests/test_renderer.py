@@ -194,3 +194,50 @@ def test_render_sync_result():
   assert "엔비디아 (NVDA)" in msg
   assert "⚠️ **동기화 실패 계좌 (1개)**" in msg
   assert "계좌 위탁1: 비밀번호 오류" in msg
+
+
+def test_render_sync_result_with_traded_at():
+  """traded_at 필드가 존재할 때 거래일시(📅 YYYY-MM-DD HH:MM 또는 📅 YYYY-MM-DD) 렌더링을 검증합니다."""
+  result = {
+      "success_count": 2,
+      "pending_count": 1,
+      "synced_transactions": [
+          {
+              "type": "BUY",
+              "asset_name": "삼성전자",
+              "quantity": 10,
+              "price": 70000,
+              "total_amount": 700000,
+              "currency": "KRW",
+              "traded_at": "2026-08-03 14:30",
+          },
+          {
+              "type": "INTEREST",
+              "asset_name": "맥쿼리인프라",
+              "quantity": 0,
+              "price": 15000,
+              "total_amount": 15000,
+              "currency": "KRW",
+              "traded_at": "2026-07-19",
+          },
+      ],
+      "unregistered_assets": [
+          {
+              "type": "BUY",
+              "name": "NVIDIA",
+              "ticker": "NVDA",
+              "quantity": 3,
+              "price": 120.0,
+              "total_amount": 360.0,
+              "currency": "USD",
+              "traded_at": "2026-08-03 22:15",
+          }
+      ],
+  }
+
+  msg = MessageRenderer.render_sync_result(result)
+
+  assert "[매수] 삼성전자 | 10주 | 70,000원 (총 700,000원) 📅 2026-08-03 14:30" in msg
+  assert "[배당] 맥쿼리인프라 | 배당금 입금 | 총 15,000원 📅 2026-07-19" in msg
+  assert "누락 거래: [매수] 3주 | $120.00 (총 $360.00) 📅 2026-08-03 22:15" in msg
+
