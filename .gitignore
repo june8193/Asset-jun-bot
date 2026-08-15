@@ -28,3 +28,6 @@ mcp_config.json
 .scratch/
 scratch/
 
+# Antigravity Multi-agent temporary workspaces
+.agents/*
+!.agents/skills/
