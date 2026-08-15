@@ -1,16 +1,14 @@
 ---
 name: asset-auditor
-description: Audit portfolio assets, review trades, and conduct 1-on-1 investment interviews. 자산 점검, 매매 복기 및 투자 원칙 검증 요청 시 사용.
+description: 자산 점검, 매매 복기 및 1대1 투자 원칙 검증(Grill-Me 인터뷰) 요청 시 사용.
 ---
 
 # 자산 점검 및 투자 복기 스킬 (asset-auditor)
 
-사용자의 자산점검 및 투자 복기 요청에 따라 1대1 인터뷰(Grill-Me) 방식으로 엄격하게 워크플로우를 실행하는 스킬입니다.
-
 ## 1. 기본 원칙 및 태도
-- **언어 정책**: 모든 대화와 보고서는 객관적인 **한국어**로 작성합니다.
 - **인터뷰 규칙 (Grill-Me)**: 한 번에 단 하나의 구체적인 질문만 던진 후 사용자의 답변을 대기합니다.
-- **원칙 검증**: `asset-advisor/references/investment-principles.md`를 로드하여 사용자의 매매 및 계획이 원칙(손절 -15%, 장세대응, FOMO 방지 등)에 부합하는지 비판적으로 검증합니다.
+- **원칙 검증**: `references/investment-principles.md`를 로드하여 사용자의 매매 및 계획이 원칙(손절 가설 점검, 장세대응, FOMO 방지 등)에 부합하는지 비판적으로 검증합니다.
+- **사례 기반 검증 (On-Demand)**: 장세 판단(2단계) 및 매매 복기(3단계) 시, 대상 종목·업종·매매 패턴·투자 심리와 관련된 과거 유사 사례가 있는지 `references/trade-cases-index.md` 색인을 확인하고 매칭되는 `references/cases/*.md`를 로드하여 객관적 근거 및 과거 교훈으로 인용합니다.
 
 ---
 
@@ -23,7 +21,7 @@ description: Audit portfolio assets, review trades, and conduct 1-on-1 investmen
    - 기준일 설정: YTD(연초), 1Y(1년 전), 3M(3개월 전), 1M(1개월 전)
    - `get_market_history` 호출 ➔ KOSPI(`^KS11`), S&P 500(`^GSPC`), NASDAQ(`^IXIC`) 3대 지수의 4개 기간별 수익률 수집
    - `get_snapshots` / `get_portfolio_status` / `get_yearly_stats` / `get_asset_ratios` 호출 ➔ 자산 배분 현황 및 포트폴리오의 4개 기간별(YTD, 1Y, 3M, 1M) 수익률(ROI) 산출
-   - **자산 비중 산출 주의사항 (중요)**: `get_asset_ratios`의 `sub_results` 응답 중 `current_ratio` 수치는 상위 카테고리 목표액 기준이므로 그대로 표기하지 말고, **`current_amt / total_valuation * 100`으로 전체 자산 대비 비중을 직접 재계산하여 브리핑**한다.
+   - **소분류 자산 비중 산출 기준**: `get_asset_ratios`의 `sub_results` 비중은 **`current_amt / total_valuation * 100`으로 전체 자산 대비 비중을 직접 계산하여 브리핑**한다.
 4. **보유 종목별 다기간 수익률 및 포트폴리오 기여도(Attribution) 분석**:
    - `get_portfolio_status`의 보유 종목별로 `get_stock_history` 호출 ➔ 각 종목의 4개 기간(YTD, 1Y, 3M, 1M) 현지 통화 주가 수익률 수집
    - **기여도 산출 공식**: $\text{추정 기여도(\%p)} = \text{포트폴리오 비중(\%)} \times \text{종목 기간 수익률(\%)}$ (환율 효과를 제외한 순수 현지 통화 주가 변동 기준)
@@ -34,21 +32,24 @@ description: Audit portfolio assets, review trades, and conduct 1-on-1 investmen
    - **Cash Drag 효과**: `get_asset_ratios`로 현금/달러 비중 측정 ➔ 상승장/하락장에서의 현금 보유에 따른 성과 영향도 계산
    - **보유 종목 기여도**: 종목별 비중 $\times$ 기간 수익률 기반 손익 기여도 분해 (Top 기여/부진 종목 성과 영향)
    - **시장/국가 노출도**: `get_market_history`로 한국(KOSPI) vs 미국(S&P 500) 자산 배분 비중에 따른 시장 지수 영향 구분
-   - **원칙 준수 및 매매 행태**: `get_transactions`로 손절원칙(-15%) 미준수 방치, 잦은 매매, 뇌동매매 여부 대조
-7. `investment-principles.md` 기반 AI 예비 진단 및 조언 도출 (다기간 벤치마크 성과표, Top/Bottom 종목 기여도, 4대 레이어 원인 분석 브리핑 포함)
+   - **원칙 준수 및 매매 행태**: `get_transactions`로 투자 원칙(`references/investment-principles.md`) 미준수 방치, 잦은 매매, 뇌동매매 여부 대조
+7. **예비 진단 브리핑 및 첫 번째 질의**:
+   - 다기간 벤치마크 성과표, Top/Bottom 종목 기여도, 4대 레이어 원인 분석 브리핑을 출력하고, 2단계 진입을 위한 첫 번째 질문을 던진 후 사용자 답변을 대기한다.
 - **완료 검증 조건 (Completion Criterion)**:
-  - [ ] 이전 점검일, 현재 전략, 다기간(YTD, 1Y, 3M, 1M) 지수/포트폴리오 수익률 수집, 자산 비중 조회(전체 자산 대비 소분류 비중 재계산 포함), 보유 종목별 다기간 수익률 및 Top/Bottom 기여도 분석이 준비되었는가?
-  - [ ] 다기간 성과 비교표, 주요 기여/부진 종목 분석, 팩트 기반 원인 브리핑 출력 후 **질문 1개만** 던지고 턴을 멈추어 사용자 답변을 대기하고 있는가?
+  - [ ] 이전 점검일, 현재 전략, 다기간(YTD, 1Y, 3M, 1M) 지수/포트폴리오 수익률, 전체 자산 대비 소분류 비중, 보유 종목별 다기간 수익률 및 Top/Bottom 기여도 데이터가 모두 정합성 있게 수집되었는가?
+  - [ ] 성과 비교표, 주요 기여/부진 종목 분석, 팩트 기반 원인 브리핑 및 첫 번째 Grill-Me 질문 1건이 온전히 전달되었는가?
 
 ### [2단계] 장세 판단 및 리밸런싱/현재 전략 인터뷰 (Grill-Me)
 1. 사용자 답변에 따른 투자 원칙 대조 및 피드백 (Grilling)
 2. **다기간 성과 및 알파(Alpha) 연계 Grilling 질의**:
    - 🟢 `Alpha > 0` (시장 상회): 과도한 위험 노출(고변동성/레버리지 타점) 여부 점검 및 과열 국면 대비 현금 비중 확대/소외 자산 분산 리밸런싱 계획 질의
-   - 🔴 `Alpha < 0` (시장 하회): Cash drag(현금 비중 과다), 부진 종목(Detractors) 쏠림, 손절원칙(-15%) 미준수 및 셀링 클라이막스 투매 방지 여부 진단 질의
+   - 🔴 `Alpha < 0` (시장 하회): Cash drag(현금 비중 과다), 부진 종목(Detractors) 쏠림, 원칙(`references/investment-principles.md`) 미준수 및 셀링 클라이막스 투매 방지 여부 진단 질의
 3. **단기(1M/3M) 모멘텀 변화 및 10년 보유 검증 Grilling 질의**:
-   - 최근 1M/3M 모멘텀이 급격히 둔화되거나 손실 기여가 큰 종목에 대해 **"해당 종목을 10년 이상 유지할 확신이 있는가? 아니라면 반등 시 비중 축소(예: 50% 감축) 및 리밸런싱 계획이 있는가?"** 질의
-4. 장세 판단 및 **현재 운용 전략(ex. 과열 대비 현금확보, 조정장 저점분할매수 등 스탠스)** 명시/갱신 질의
-5. 추상적 답변 시 타겟 종목, 거래 규모, 집행 주기, 투자 가설 등 구체적 정보 추가 질문
+   - 최근 1M/3M 모멘텀이 급격히 둔화되거나 손실 기여가 큰 종목에 대해 `references/investment-principles.md`의 **10년 보유 검증 원칙(장기 유지 확신 점검 및 반등 시 선제적 비중 축소 계획)** 질의
+4. **유사 사례(Cases) 기반 패턴 점검**:
+   - 대상 종목·업종 또는 운용 전략과 관련된 과거 사례가 있는지 `references/trade-cases-index.md` 색인을 확인하고 매칭되는 `references/cases/*.md` 교훈을 인용하여 피드백 제공
+5. 장세 판단 및 **현재 운용 전략(ex. 과열 대비 현금확보, 조정장 저점분할매수 등 스탠스)** 명시/갱신 질의
+6. 추상적 답변 시 타겟 종목, 거래 규모, 집행 주기, 투자 가설 등 구체적 정보 추가 질문
 - **완료 검증 조건 (Completion Criterion)**:
   - [ ] 다기간 Alpha 원인 진단, 부진 종목에 대한 10년 보유 검증/비중 조절, 장세 판단(과열/침체 대응), 현재 활성 전략(변동 여부 포함), 구체적 리밸런싱 종목/금액/주기에 대한 사용자 답변이 명확히 수집되었는가?
 
@@ -56,11 +57,14 @@ description: Audit portfolio assets, review trades, and conduct 1-on-1 investmen
 1. `get_transactions`로 미복기 BUY/SELL 거래 필터링
 2. 거래 없는 경우 4단계로 즉시 이동
 3. 거래가 있는 경우 시간순 1건씩 릴레이 질문:
-   - **거래 사유 및 가설**: 매수 건은 진입/매수 가설, 매도 건은 매도 이유(목표달성, 손절원칙 -15%, 가설붕괴, 자금회수 등) 질의
-   - 주가 변동 대조 (`get_stock_history`) 및 투자 원칙 검증
+   - **거래 사유 및 가설**: 매수 건은 진입/매수 가설, 매도 건은 매도 이유(목표달성, 손절 가설 검증, 가설붕괴, 자금회수 등) 질의
+   - 주가 변동 대조 (`get_stock_history`) 및 투자 원칙(`references/investment-principles.md`) 검증
+   - **유사 사례 인용**: 거래 대상 종목 또는 진입/청산 패턴과 매칭되는 사례가 있는지 `references/trade-cases-index.md` 색인을 확인하고 `references/cases/*.md` 교훈 인용
 4. 거래 등급 부여: 🟢 Good Trade, 🔴 Bad Trade, 🟡 Hold
 - **완료 검증 조건 (Completion Criterion)**:
   - [ ] 모든 미복기 거래에 대해 1건씩 '거래 사유 및 가설' 질의가 수행되고 평가 등급(🟢/🔴/🟡)이 결정되었는가?
+
+
 
 ### [4단계] 통합 보고서 및 마스터 저널 직접 저장
 1. 상세 보고서 생성: `STORAGE_DIR/asset_audits/asset_audit_YYYYMMDD_HHMMSS.md`
@@ -94,3 +98,4 @@ description: Audit portfolio assets, review trades, and conduct 1-on-1 investmen
 - 다기간 및 YTD S&P 500 지수 대비 알파 성과, 종목 기여도 분석에 기반한 최종 메타인지 피드백 제공 후 워크플로우 종료.
 - **완료 검증 조건 (Completion Criterion)**:
   - [ ] 다기간 Alpha 성과 및 종목별 성과 기여도에 기반한 메타인지 피드백 및 투자 원칙 개선안이 최종 전달되었는가?
+
