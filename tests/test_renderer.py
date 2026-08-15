@@ -215,7 +215,7 @@ def test_render_sync_result_with_traded_at():
               "type": "INTEREST",
               "asset_name": "맥쿼리인프라",
               "quantity": 0,
-              "price": 15000,
+              "price": 0,
               "total_amount": 15000,
               "currency": "KRW",
               "traded_at": "2026-07-19",
@@ -237,7 +237,99 @@ def test_render_sync_result_with_traded_at():
 
   msg = MessageRenderer.render_sync_result(result)
 
-  assert "[매수] 삼성전자 | 10주 | 70,000원 (총 700,000원) 📅 2026-08-03 14:30" in msg
-  assert "[배당] 맥쿼리인프라 | 배당금 입금 | 총 15,000원 📅 2026-07-19" in msg
-  assert "누락 거래: [매수] 3주 | $120.00 (총 $360.00) 📅 2026-08-03 22:15" in msg
+  assert "• [매수] 삼성전자 | 10주 @ 70,000원 (총 700,000원) 📅 2026-08-03 14:30" in msg
+  assert "• [배당] 맥쿼리인프라 | 배당금 입금 | 총 15,000원 📅 2026-07-19" in msg
+  assert "누락 거래: [매수] 3주 @ $120.00 (총 $360.00) 📅 2026-08-03 22:15" in msg
+
+
+def test_render_sync_result_dividend_and_tax():
+  """배당금(price=0인 해외 배당) 및 해외배당세(TAX)가 정상 총액으로 렌더링되는지 검증합니다."""
+  result = {
+      "success_count": 2,
+      "pending_count": 2,
+      "synced_transactions": [
+          {
+              "type": "INTEREST",
+              "asset_name": "Realty Income Corporation",
+              "quantity": 0.0,
+              "price": 0.0,
+              "total_amount": 50.22,
+              "currency": "USD",
+              "traded_at": "2026-08-14",
+          },
+          {
+              "type": "TAX",
+              "asset_name": "Realty Income Corporation",
+              "quantity": 0.0,
+              "price": 0.0,
+              "total_amount": 7.53,
+              "currency": "USD",
+              "traded_at": "2026-08-14",
+          },
+      ],
+      "unregistered_assets": [
+          {
+              "type": "INTEREST",
+              "name": "Main Street Capital",
+              "ticker": "MAIN",
+              "quantity": 0.0,
+              "price": 0.0,
+              "total_amount": 30.00,
+              "currency": "USD",
+              "traded_at": "2026-08-14",
+          },
+          {
+              "type": "TAX",
+              "name": "Main Street Capital",
+              "ticker": "MAIN",
+              "quantity": 0.0,
+              "price": 0.0,
+              "total_amount": 4.50,
+              "currency": "USD",
+              "traded_at": "2026-08-14",
+          },
+      ],
+  }
+
+  msg = MessageRenderer.render_sync_result(result)
+
+  assert "• [배당] Realty Income Corporation | 배당금 입금 | 총 $50.22 📅 2026-08-14" in msg
+  assert "• [세금] Realty Income Corporation | 해외배당세 | 총 $7.53 📅 2026-08-14" in msg
+  assert "• **Main Street Capital (MAIN)**\n  - 누락 거래: [배당] 배당금 입금 | 총 $30.00 📅 2026-08-14" in msg
+  assert "• **Main Street Capital (MAIN)**\n  - 누락 거래: [세금] 해외배당세 | 총 $4.50 📅 2026-08-14" in msg
+
+
+def test_render_sync_result_fractional_quantity():
+  """소수점 주수(0.125주, 1.5주 등) 및 수동 매칭 태그 렌더링을 검증합니다."""
+  result = {
+      "success_count": 2,
+      "pending_count": 0,
+      "synced_transactions": [
+          {
+              "type": "BUY",
+              "asset_name": "Apple Inc",
+              "quantity": 5.5,
+              "price": 180.5,
+              "total_amount": 992.75,
+              "currency": "USD",
+              "is_manual_matched": True,
+              "traded_at": "2026-08-14 23:15",
+          },
+          {
+              "type": "SELL",
+              "asset_name": "Microsoft Corporation",
+              "quantity": 0.125,
+              "price": 400.0,
+              "total_amount": 50.0,
+              "currency": "USD",
+              "traded_at": "2026-08-14 23:20",
+          },
+      ],
+  }
+
+  msg = MessageRenderer.render_sync_result(result)
+
+  assert "• [매수] Apple Inc | 5.5주 @ $180.50 (총 $992.75) [수동 매칭완료] 📅 2026-08-14 23:15" in msg
+  assert "• [매도] Microsoft Corporation | 0.125주 @ $400.00 (총 $50.00) 📅 2026-08-14 23:20" in msg
+
 
