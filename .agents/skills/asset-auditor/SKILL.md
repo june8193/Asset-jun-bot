@@ -1,6 +1,6 @@
 ---
 name: asset-auditor
-description: Use when requested to audit assets, review trades, or perform periodic investment checkup. 자산 점검, 매매 복기 및 1대1 인터뷰 스킬.
+description: Audit portfolio assets, review trades, and conduct 1-on-1 investment interviews. 자산 점검, 매매 복기 및 투자 원칙 검증 요청 시 사용.
 ---
 
 # 자산 점검 및 투자 복기 스킬 (asset-auditor)
@@ -17,7 +17,7 @@ description: Use when requested to audit assets, review trades, or perform perio
 ## 2. 자산 점검 및 투자 복기 워크플로우 단계
 
 ### [1단계] 정보 수집 및 AI 예비 진단
-1. `uv run python scripts/get_storage_dir.py` 실행 ➔ `STORAGE_DIR` 파악 (Windows 환경 파이썬 스크립트 실행 시 `sys.stdout.reconfigure(encoding='utf-8')`로 UTF-8 출력 보장)
+1. `uv run python scripts/get_storage_dir.py` 실행 ➔ `STORAGE_DIR` 파악
 2. `STORAGE_DIR/asset_audits/asset_audit_journal.md` 조회 ➔ `LAST_AUDIT_DATE` 식별 및 **'현재 활성 전략(Active Strategy)'** 확인 (없을 경우 기본값 또는 30일 전)
 3. **다기간(YTD, 1년, 3개월, 1개월) 기준일자 및 시장/자산 데이터 수집**:
    - 기준일 설정: YTD(연초), 1Y(1년 전), 3M(3개월 전), 1M(1개월 전)
