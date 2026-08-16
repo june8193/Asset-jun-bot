@@ -5,7 +5,7 @@ description: 미국(S&P500/NASDAQ/DOW) 주간 지수 현황 보고서 작성 및
 
 # 미국 시장 주간 지수 현황 보고서 작성 (US Weekly Index Report)
 
-최근 1주일간의 미국 시장 일일 보고서를 요약하고 주간 지수 변동률(S&P 500, NASDAQ, DOW)을 수집하여 주간 마크다운/PDF 보고서를 작성 후 텔레그램으로 전송하는 스킬입니다.
+최근 1주일간의 미국 시장 일일 보고서를 요약하고 주간 지수 변동률(S&P 500, NASDAQ, DOW)을 수집하여 주간 마크다운 보고서를 작성 후 텔레그램으로 전송하는 스킬입니다.
 
 ⚠️ **계획 모드 및 승인 생략**: 구현 계획서 작성 없이 즉시 워크플로우를 실행합니다.
 
@@ -36,8 +36,7 @@ description: 미국(S&P500/NASDAQ/DOW) 주간 지수 현황 보고서 작성 및
 - **완료 검증 조건 (Completion Criterion)**:
   - [ ] 미국 주간 마크다운 보고서 저장 완료
 
-### 5단계 & 6단계: PDF 변환 및 텔레그램 전송
-- PDF 변환: `uv run python scripts/markdown_to_pdf.py [마크다운경로] [PDF경로]`
+### 5단계: 텔레그램 전송 (Telegram Notification)
 - 텔레그램 전송: `uv run python scripts/send_telegram.py "[전문 + 파일경로]"`
 - **완료 검증 조건 (Completion Criterion)**:
-  - [ ] PDF 생성 및 텔레그램 전송 성공 로그 확인 완료
+  - [ ] 텔레그램 전송 성공 로그 확인 완료

@@ -1,11 +1,11 @@
 ---
 name: asset-monthly-report
-description: 자산/포트폴리오 월간 종합 보고서(주간 시장 요약, 매매 정리, 수익률 및 자산배분 검토) 작성 및 PDF/텔레그램 발송 스킬. Use when executing scheduled monthly asset report task or requested to generate monthly asset review.
+description: 자산/포트폴리오 월간 종합 보고서(주간 시장 요약, 매매 정리, 수익률 및 자산배분 검토) 작성 및 텔레그램 발송 스킬. Use when executing scheduled monthly asset report task or requested to generate monthly asset review.
 ---
 
 # 자산 및 포트폴리오 월간 종합 보고서 작성 (Asset Monthly Report)
 
-한 달간의 국내/미국 주간 시장 동향을 종합 요약하고, 포트폴리오 및 벤치마크(S&P 500, KOSPI 등) 수익률, 보유 종목별 성과 기여도, 당월 매매 내역을 종합 결산하여 마크다운/PDF 보고서를 작성 후 텔레그램으로 전송하는 스킬입니다.
+한 달간의 국내/미국 주간 시장 동향을 종합 요약하고, 포트폴리오 및 벤치마크(S&P 500, KOSPI 등) 수익률, 보유 종목별 성과 기여도, 당월 매매 내역을 종합 결산하여 마크다운 보고서를 작성 후 텔레그램으로 전송하는 스킬입니다.
 
 ⚠️ **계획 모드 및 승인 생략**: 구현 계획서 작성 없이 즉시 워크플로우를 실행합니다.
 
@@ -81,12 +81,9 @@ description: 자산/포트폴리오 월간 종합 보고서(주간 시장 요약
 
 ---
 
-### 6단계 & 7단계: PDF 변환 및 텔레그램 발송
-1. **PDF 변환**:
-   - `uv run python scripts/markdown_to_pdf.py "[마크다운절대경로]" "[PDF절대경로]"` 실행
-   - 예: `STORAGE_DIR/reports/asset_monthly/Asset_monthly_report_YYYYMM.pdf`
-2. **텔레그램 알림 전송**:
+### 6단계: 텔레그램 발송 (Telegram Notification)
+1. **텔레그램 알림 전송**:
    - `uv run python scripts/send_telegram.py "[마크다운보고서전문 + 생성파일경로]"` 실행
    - 로그 `"Telegram message sent successfully..."` 확인
 - **완료 검증 조건 (Completion Criterion)**:
-  - [ ] PDF 변환 완료 및 텔레그램 전송 성공 로그 확인 완료
+  - [ ] 텔레그램 전송 성공 로그 확인 완료

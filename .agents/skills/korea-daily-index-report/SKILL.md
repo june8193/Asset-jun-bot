@@ -5,7 +5,7 @@ description: 국내(KOSPI/KOSDAQ) 일일 지수 마감 보고서 작성 및 텔�
 
 # 국내 시장 일일 지수 현황 보고서 작성 (Korea Daily Index Report)
 
-국내 시장(KOSPI, KOSDAQ)의 지수 및 핵심 뉴스 데이터를 수집하여 일일 보고서를 생성하고 PDF 변환 후 텔레그램으로 발송하는 스킬입니다.
+국내 시장(KOSPI, KOSDAQ)의 지수 및 핵심 뉴스 데이터를 수집하여 일일 보고서를 생성하고 텔레그램으로 발송하는 스킬입니다.
 
 ⚠️ **계획 모드 및 승인 생략**: 구현 계획서 작성 없이 즉시 워크플로우를 실행합니다.
 
@@ -15,7 +15,7 @@ description: 국내(KOSPI/KOSDAQ) 일일 지수 마감 보고서 작성 및 텔�
 
 ### 0단계: 주말 및 휴장일 여부 확인 (Pre-check)
 - `uv run python scripts/query_market.py --action holiday --country KR` 실행 ➔ `IS_HOLIDAY`, `DESCRIPTION` 기억
-- `IS_HOLIDAY == True`인 경우: 지수/뉴스 수집 및 PDF 변환을 건너뛰고 간이 휴장일 보고서 작성 후 4단계로 이동.
+- `IS_HOLIDAY == True`인 경우: 지수/뉴스 수집을 건너뛰고 간이 휴장일 보고서 작성 후 3단계로 이동.
 - **완료 검증 조건 (Completion Criterion)**:
   - [ ] 휴장일 여부 판정이 정상 완료되었는가?
 
@@ -35,14 +35,7 @@ description: 국내(KOSPI/KOSDAQ) 일일 지수 마감 보고서 작성 및 텔�
 - **완료 검증 조건 (Completion Criterion)**:
   - [ ] 지정된 경로에 마크다운 파일 생성이 완료되었는가?
 
-### 3단계: PDF 변환 실행
-- 평일(`is_holiday == False`):
-  `uv run python scripts/markdown_to_pdf.py [마크다운절대경로] [PDF절대경로]` 실행
-- 휴장일: 본 단계 생략
-- **완료 검증 조건 (Completion Criterion)**:
-  - [ ] 평일인 경우 PDF 파일 생성이 완료되었는가?
-
-### 4단계: 텔레그램 알림 전송 (Telegram Notification)
+### 3단계: 텔레그램 알림 전송 (Telegram Notification)
 - `uv run python scripts/send_telegram.py "[마크다운보고서전문 + 생성파일경로]"` 실행
 - 로그 `"Telegram message sent successfully..."` 검증 후 종료
 - **완료 검증 조건 (Completion Criterion)**:
