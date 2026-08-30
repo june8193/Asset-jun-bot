@@ -7,8 +7,8 @@ description: 자산 점검, 포트폴리오 다기간 성과 진단, 매매 복�
 
 ## 1. 기본 원칙 및 태도
 - **인터뷰 규칙 (Grill-Me)**: 한 번에 단 하나의 구체적인 질문만 던진 후 사용자의 답변을 대기합니다.
-- **비판적 가설 감사 (Thesis Auditor)**: `references/investment-principles.md`를 로드하여 사용자의 매매와 전략이 핵심 원칙(독립적 Thesis, 대중 센티먼트 역발상, 자산 배분 통제)에 부합하는지 엄격히 검증하며, 타인 추천이나 불명확한 근거의 매매는 Bad Trade(🔴)로 비판적 피드백을 제시합니다.
-- **사례 기반 검증 (On-Demand)**: 장세 판단(2단계) 및 매매 복기(3단계) 시, 대상 종목·업종·매매 패턴·투자 심리와 관련된 과거 유사 사례가 있는지 `references/trade-cases-index.md` 색인을 확인하고 매칭되는 `references/cases/*.md`를 로드하여 객관적 근거 및 과거 교훈으로 인용합니다.
+- **비판적 가설 감사 (Thesis Auditor)**: `docs/references/investment-principles.md`를 로드하여 사용자의 매매와 전략이 핵심 원칙(독립적 Thesis, 대중 센티먼트 역발상, 자산 배분 통제)에 부합하는지 엄격히 검증하며, 타인 추천이나 불명확한 근거의 매매는 Bad Trade(🔴)로 비판적 피드백을 제시합니다.
+- **사례 기반 검증 (On-Demand)**: 장세 판단(2단계) 및 매매 복기(3단계) 시, 대상 종목·업종·매매 패턴·투자 심리와 관련된 과거 유사 사례가 있는지 `docs/references/trade-cases-index.md` 색인을 확인하고 매칭되는 `docs/references/cases/*.md`를 로드하여 객관적 근거 및 과거 교훈으로 인용합니다.
 
 ---
 
@@ -38,7 +38,7 @@ description: 자산 점검, 포트폴리오 다기간 성과 진단, 매매 복�
    - **Cash Drag 효과**: `get_asset_ratios`로 현금/달러 비중 측정 ➔ 상승장/하락장에서의 현금 보유에 따른 성과 영향도 계산
    - **보유 종목 기여도**: 종목별 비중 $\times$ 기간 수익률 기반 손익 기여도 분해 (Top 기여/부진 종목 성과 영향)
    - **시장/국가 노출도**: `get_market_history`로 한국(KOSPI) vs 미국(S&P 500) 자산 배분 비중에 따른 시장 지수 영향 구분
-   - **원칙 준수 및 매매 행태**: `get_transactions`로 투자 원칙(`references/investment-principles.md`) 미준수 방치, 외부 소음(매크로/뉴스/차트) 추종, 잦은 매매, 뇌동매매 여부 대조
+   - **원칙 준수 및 매매 행태**: `get_transactions`로 투자 원칙(`docs/references/investment-principles.md`) 미준수 방치, 외부 소음(매크로/뉴스/차트) 추종, 잦은 매매, 뇌동매매 여부 대조
 8. **예비 진단 브리핑 및 첫 번째 질의**:
    - 미참조 보고서가 존재하는 경우 `[미참조 시장/자산 보고서 요약 및 맥락]`을 브리핑 상단에 포함하고, 다기간 벤치마크 성과표, Top/Bottom 종목 기여도, 4대 레이어 원인 분석 브리핑을 출력한 후 2단계 진입을 위한 첫 번째 질문을 던지고 사용자 답변을 대기한다.
 - **완료 검증 조건 (Completion Criterion)**:
@@ -49,11 +49,11 @@ description: 자산 점검, 포트폴리오 다기간 성과 진단, 매매 복�
 1. 사용자 답변에 따른 투자 원칙 대조 및 피드백 (Grilling)
 2. **다기간 성과 및 알파(Alpha) 연계 Grilling 질의**:
    - 🟢 `Alpha > 0` (시장 상회): 과도한 위험 노출(단기 급등 쏠림) 여부 점검 및 대중 과열 국면 대비 현금 비중 확대/소외 자산 분산 리밸런싱 계획 질의
-   - 🔴 `Alpha < 0` (시장 하회): Cash drag(현금 비중 과다), 부진 종목(Detractors) 쏠림, 원칙(`references/investment-principles.md`) 미준수 및 공포 국면 투매 여부 진단 질의
+   - 🔴 `Alpha < 0` (시장 하회): Cash drag(현금 비중 과다), 부진 종목(Detractors) 쏠림, 원칙(`docs/references/investment-principles.md`) 미준수 및 공포 국면 투매 여부 진단 질의
 3. **단기(1M/3M) 모멘텀 변화 및 펀더멘털 가설(Thesis) 검증 Grilling 질의**:
-   - 최근 1M/3M 모멘텀이 급격히 둔화되거나 손실 기여가 큰 종목에 대해 `references/investment-principles.md`의 **'독립적 펀더멘털 가설(Thesis)' 훼손 여부** 및 비중 조절 계획 질의
+   - 최근 1M/3M 모멘텀이 급격히 둔화되거나 손실 기여가 큰 종목에 대해 `docs/references/investment-principles.md`의 **'독립적 펀더멘털 가설(Thesis)' 훼손 여부** 및 비중 조절 계획 질의
 4. **유사 사례(Cases) 기반 패턴 점검**:
-   - 대상 종목·업종 또는 운용 전략과 관련된 과거 사례가 있는지 `references/trade-cases-index.md` 색인을 확인하고 매칭되는 `references/cases/*.md` 교훈을 인용하여 피드백 제공
+   - 대상 종목·업종 또는 운용 전략과 관련된 과거 사례가 있는지 `docs/references/trade-cases-index.md` 색인을 확인하고 매칭되는 `docs/references/cases/*.md` 교훈을 인용하여 피드백 제공
 5. **시장 센티먼트(과열/무관심/공포) 및 현재 운용 전략(자산 배분 비율 스탠스)** 명시/갱신 질의
 6. 추상적 답변 시 타겟 종목, 거래 규모, 집행 주기, 구체적 펀더멘털 가설 등 추가 질문
 - **완료 검증 조건 (Completion Criterion)**:
@@ -66,9 +66,9 @@ description: 자산 점검, 포트폴리오 다기간 성과 진단, 매매 복�
    - **거래 사유 및 가설**:
      - 매수 건: **독립적 펀더멘털 가설(Thesis)**, 당시 **주변 센티먼트(과열/공포)**, **자산 배분 부합 여부** 질의
      - 매도 건: **가설 훼손 여부**, **목표 자산 배분 비율 리밸런싱**, 자금 회수 사유 질의
-   - 주가 변동 대조 (`get_stock_history`) 및 투자 원칙(`references/investment-principles.md`) 검증
+   - 주가 변동 대조 (`get_stock_history`) 및 투자 원칙(`docs/references/investment-principles.md`) 검증
    - **정보 소음 대조**: 뉴스/매크로/정치/차트 패턴에 기인한 매매인지 엄격히 검증
-   - **유사 사례 인용**: 거래 대상 종목 또는 진입/청산 패턴과 매칭되는 사례가 있는지 `references/trade-cases-index.md` 색인을 확인하고 `references/cases/*.md` 교훈 인용
+   - **유사 사례 인용**: 거래 대상 종목 또는 진입/청산 패턴과 매칭되는 사례가 있는지 `docs/references/trade-cases-index.md` 색인을 확인하고 `docs/references/cases/*.md` 교훈 인용
 4. 거래 등급 부여:
    - 🟢 **Good Trade**: 독립적 펀더멘털 가설과 자산 배분 원칙에 부합한 거래
    - 🔴 **Bad Trade**: 매크로/뉴스/차트 소음 추종, 타인 추천, 단순 감정(FOMO/공포)에 의한 뇌동매매

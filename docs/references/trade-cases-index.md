@@ -1,6 +1,6 @@
 # 투자 매매 사례 마스터 색인 (Trade Cases Index)
 
-상담 및 매매 복기 시(종목, 업종, 심리 상태, 매매 패턴) 매칭되는 핵심 태그를 확인한 후, 해당 상세 파일(`references/cases/*.md`)을 온디맨드(On-Demand)로 로드하여 조언 및 복기 근거로 인용합니다.
+상담 및 매매 복기 시(종목, 업종, 심리 상태, 매매 패턴) 매칭되는 핵심 태그를 확인한 후, 해당 상세 파일(`docs/references/cases/*.md`)을 온디맨드(On-Demand)로 로드하여 조언 및 복기 근거로 인용합니다.
 
 ## 사례 색인 카탈로그
 
@@ -9,4 +9,4 @@
 | **#001** | 삼성전자 (`005930`)<br>SK하이닉스 (`000660`) | 국내주식<br>반도체·AI | 🟡 복합 교훈 | `#추세추종` `#신고가돌파` `#FOMO` `#고점재진입` `#급락장` `#하락장물타기` `#손절마비` `#결과편향` | 초과열 고점 돌파는 FOMO이며, 하락장 물타기는 결과 편향일 뿐 고점 선제적 현금 확보가 핵심이다 | [001_samsung_hynix_semiconductor_2026.md](cases/001_samsung_hynix_semiconductor_2026.md) |
 
 ## 신규 사례 추가 규칙
-- 신규 복기 발생 시 `references/cases/{ID}_{ticker}_{description}_{YYYY}.md` 생성 후 위 테이블에 행을 등록합니다.
+- 신규 복기 발생 시 `docs/references/cases/{ID}_{ticker}_{description}_{YYYY}.md` 생성 후 위 테이블에 행을 등록합니다.
