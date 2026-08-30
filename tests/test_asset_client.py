@@ -47,12 +47,8 @@ def mock_config(monkeypatch):
   """테스트용 환경 변수 및 설정을 주입합니다."""
   monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "mock_token")
   monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "12345")
-  monkeypatch.setenv("GEMINI_API_KEY", "mock_gemini_key")
   monkeypatch.setenv("ASSET_MANAGER_API_URL", "http://mock-asset-server")
   monkeypatch.setenv("STORAGE_DIR", "mock_storage_dir")
-  monkeypatch.setenv("MODEL_ROUTER", "gemini-2.5-flash")
-  monkeypatch.setenv("MODEL_GENERAL_CONVERSATION", "gemini-2.5-flash")
-  monkeypatch.setenv("MODEL_ASSET_INQUIRY", "gemini-1.5-flash")
   monkeypatch.setenv("NAVER_API_CLIENT_ID", "mock_naver_id")
   monkeypatch.setenv("NAVER_API_CLIENT_SECRET", "mock_naver_secret")
 

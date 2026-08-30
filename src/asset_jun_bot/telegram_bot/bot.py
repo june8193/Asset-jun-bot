@@ -7,8 +7,6 @@ import os
 import sys
 import httpx
 from ..config import Config
-from ..agent_runner import AgentRunner
-from ..chat_history_manager import ChatHistoryManager
 from .client import TelegramClient
 from .commands import CLICommandHandler, format_sync_result_message
 from .scheduler import TelegramScheduler
@@ -23,21 +21,13 @@ class TelegramBot:
   def __init__(
       self,
       config: Config,
-      agent_runner: AgentRunner,
-      chat_history_manager: ChatHistoryManager | None = None,
   ):
     """TelegramBot 인스턴스를 생성합니다.
 
     Args:
         config: 로드 완료된 설정 객체
-        agent_runner: AI 에이전트 실행기 객체
-        chat_history_manager: 대화 내역 저장 관리 객체
     """
     self.config = config
-    self.agent_runner = agent_runner
-    self.chat_history_manager = chat_history_manager or ChatHistoryManager(
-        storage_dir=config.storage_dir
-    )
     self.base_url = f"https://api.telegram.org/bot{self.config.telegram_bot_token}"
     self.client = TelegramClient(base_url=self.base_url)
     self.command_handler = CLICommandHandler(
@@ -103,49 +93,17 @@ class TelegramBot:
       if text:
         logger.info(f"사용자 요청 수신 (Chat ID: {chat_id}): {text}")
 
-        # CLI 명령어 분기 (AI 개입 없음)
+        # CLI 명령어 분기
         if text.startswith("/"):
           await self.process_cli_command(chat_id, text)
           continue
 
-        # 사용자 대화 내역 저장
-        await self.chat_history_manager.save_message(
-            user_id=chat_id, role="user", message=text
+        # 일반 텍스트 입력 시 안내 메시지 전송
+        notice_text = (
+            "💡 자연어 대화 기능은 종료되었습니다.\n"
+            "사용 가능한 CLI 명령어를 확인하려면 `/help`를 입력하거나, Antigravity 원격 제어를 사용해 주세요."
         )
-
-        # 1. 임시 메시지 전송 및 typing 상태 표시
-        status_msg_id = await self.client.send_message(chat_id, "🔄 AI 답변을 준비 중입니다...")
-        await self.client.send_chat_action(chat_id, "typing")
-
-        last_status_text = "🔄 AI 답변을 준비 중입니다..."
-
-        # 상태 메시지 수정을 위한 비동기 콜백 정의
-        async def on_status_update(status_text: str):
-          nonlocal last_status_text
-          # CHAT은 초기 세션 상태이므로 메시지를 변경할 필요가 없습니다.
-          if status_text == "CHAT":
-            return
-          # 동일한 텍스트로의 연속적인 중복 수정을 방지합니다.
-          if status_text == last_status_text:
-            return
-          last_status_text = status_text
-
-          if status_msg_id is not None:
-            await self.client.edit_message(chat_id, status_msg_id, status_text)
-
-        # AI 에이전트 호출하여 응답 생성
-        reply_text = await self.agent_runner.ask(text, on_status_update=on_status_update)
-
-        # 봇 대화 내역 저장
-        await self.chat_history_manager.save_message(
-            user_id=chat_id, role="bot", message=reply_text
-        )
-
-        # 3. 최종 답변으로 수정 또는 전송
-        if status_msg_id is not None:
-          await self.client.edit_message(chat_id, status_msg_id, reply_text)
-        else:
-          await self.client.send_message(chat_id, reply_text)
+        await self.client.send_message(chat_id, notice_text)
 
     return next_offset
 

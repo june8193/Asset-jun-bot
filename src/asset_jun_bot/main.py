@@ -6,8 +6,6 @@ import logging
 import os
 import sys
 from asset_jun_bot.config import Config
-from asset_jun_bot.agent_runner import AgentRunner
-from asset_jun_bot.chat_history_manager import ChatHistoryManager
 from asset_jun_bot.telegram_bot import TelegramBot
 from asset_jun_bot.logging_config import setup_logging
 
@@ -39,19 +37,8 @@ async def async_main():
     logger.critical(f"설정 로드 실패: {err}")
     sys.exit(1)
 
-  # 2. Gemini API Key 환경변수 확인
-  gemini_key = os.getenv("GEMINI_API_KEY")
-  if not gemini_key:
-    logger.warning("GEMINI_API_KEY 환경변수가 설정되지 않았습니다. Antigravity SDK가 실행 시 오류를 뱉을 수 있습니다.")
-
-  # 3. 인스턴스 생성
-  agent_runner = AgentRunner(config=config)
-  chat_history_manager = ChatHistoryManager(storage_dir=config.storage_dir)
-  bot = TelegramBot(
-      config=config,
-      agent_runner=agent_runner,
-      chat_history_manager=chat_history_manager,
-  )
+  # 2. 인스턴스 생성
+  bot = TelegramBot(config=config)
 
   # 4. 폴링 루프 실행
   try:

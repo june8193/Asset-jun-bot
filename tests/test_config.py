@@ -16,9 +16,7 @@ def setup_base_envs(monkeypatch):
   """기본 테스트 환경 변수 세트를 설정합니다."""
   monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "mock_token")
   monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "12345,67890")
-  monkeypatch.setenv("GEMINI_API_KEY", "mock_gemini_key")
   monkeypatch.setenv("STORAGE_DIR", "mock_storage_dir")
-  monkeypatch.setenv("MODEL_CHAT", "gemini-3.5-flash")
   monkeypatch.setenv("NAVER_API_CLIENT_ID", "mock_naver_id")
   monkeypatch.setenv("NAVER_API_CLIENT_SECRET", "mock_naver_secret")
   monkeypatch.setenv("ASSET_MANAGER_DIR", "mock_asset_dir")
@@ -54,16 +52,6 @@ def test_config_invalid_allowed_user_ids(monkeypatch):
   assert "숫자" in str(excinfo.value) or "invalid" in str(excinfo.value).lower()
 
 
-def test_config_missing_gemini_api_key(monkeypatch):
-  """GEMINI_API_KEY가 없을 때 ValueError를 발생하는지 테스트합니다."""
-  setup_base_envs(monkeypatch)
-  monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-
-  with pytest.raises(ValueError) as excinfo:
-    Config.load()
-  assert "GEMINI_API_KEY" in str(excinfo.value)
-
-
 def test_config_valid_parsing(monkeypatch):
   """올바른 환경 변수가 있을 때 정상적으로 로드 및 파싱되는지 테스트합니다."""
   setup_base_envs(monkeypatch)
@@ -72,9 +60,7 @@ def test_config_valid_parsing(monkeypatch):
   config = Config.load()
   assert config.telegram_bot_token == "mock_token"
   assert config.telegram_allowed_user_ids == {12345, 67890}
-  assert config.gemini_api_key == "mock_gemini_key"
   assert config.storage_dir == "mock_storage_dir"
-  assert config.model_chat == "gemini-3.5-flash"
   assert config.naver_client_id == "mock_naver_id"
   assert config.naver_client_secret == "mock_naver_secret"
   assert config.asset_manager_dir == "mock_asset_dir"
@@ -99,16 +85,6 @@ def test_config_missing_storage_dir(monkeypatch):
   with pytest.raises(ValueError) as excinfo:
     Config.load()
   assert "STORAGE_DIR" in str(excinfo.value)
-
-
-def test_config_missing_model_chat(monkeypatch):
-  """MODEL_CHAT이 없을 때 ValueError를 발생하는지 테스트합니다."""
-  setup_base_envs(monkeypatch)
-  monkeypatch.delenv("MODEL_CHAT", raising=False)
-
-  with pytest.raises(ValueError) as excinfo:
-    Config.load()
-  assert "MODEL_CHAT" in str(excinfo.value)
 
 
 def test_config_missing_naver_api_client_id(monkeypatch):

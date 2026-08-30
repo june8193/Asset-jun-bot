@@ -4,7 +4,6 @@ from httpx import Response
 from unittest.mock import AsyncMock, MagicMock, patch
 from asset_jun_bot.config import Config
 from asset_jun_bot.telegram_bot import TelegramBot
-from asset_jun_bot.chat_history_manager import ChatHistoryManager
 from asset_jun_bot.asset_client import sync_kiwoom_transactions, AssetClientError
 
 @pytest.fixture
@@ -13,27 +12,16 @@ def mock_config(monkeypatch):
   monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "12345")
   monkeypatch.setenv("ASSET_MANAGER_API_URL", "http://mock-asset-server")
   monkeypatch.setenv("STORAGE_DIR", "mock_storage_dir")
-  monkeypatch.setenv("MODEL_ROUTER", "gemini-2.5-flash")
-  monkeypatch.setenv("MODEL_GENERAL_CONVERSATION", "gemini-2.5-flash")
 
   return Config(
       telegram_bot_token="mock_bot_token",
       telegram_allowed_user_ids={12345},
       asset_manager_api_url="http://mock-asset-server",
       asset_manager_dir="mock_asset_dir",
-      gemini_api_key="mock_gemini_key",
       storage_dir="mock_storage_dir",
-      model_chat="gemini-3.5-flash",
       naver_client_id="mock_naver_id",
       naver_client_secret="mock_naver_secret",
   )
-
-@pytest.fixture
-def mock_agent_runner():
-  """모킹된 AgentRunner 인스턴스를 반환합니다."""
-  runner = MagicMock()
-  runner.ask = AsyncMock(return_value="에이전트 답변입니다.")
-  return runner
 
 @pytest.mark.asyncio
 @respx.mock
@@ -81,14 +69,9 @@ async def test_sync_kiwoom_transactions_error(mock_load, mock_config):
 @pytest.mark.asyncio
 @respx.mock
 @patch("asset_jun_bot.telegram_bot.sync_kiwoom_transactions")
-async def test_telegram_bot_cli_sync_success(mock_sync, mock_agent_runner, mock_config):
+async def test_telegram_bot_cli_sync_success(mock_sync, mock_config):
   """/sync 명령어를 보냈을 때 정상적으로 동기화를 수행하고 결과를 보고하는지 테스트합니다."""
-  mock_chat_history_manager = AsyncMock(spec=ChatHistoryManager)
-  bot = TelegramBot(
-      config=mock_config,
-      agent_runner=mock_agent_runner,
-      chat_history_manager=mock_chat_history_manager,
-  )
+  bot = TelegramBot(config=mock_config)
   
   mock_sync.return_value = {
       "status": "success",

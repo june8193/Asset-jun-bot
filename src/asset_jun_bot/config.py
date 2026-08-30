@@ -14,9 +14,7 @@ class Config:
       telegram_allowed_user_ids: set[int],
       asset_manager_api_url: str,
       asset_manager_dir: str,
-      gemini_api_key: str,
       storage_dir: str,
-      model_chat: str,
       naver_client_id: str,
       naver_client_secret: str,
   ):
@@ -27,9 +25,7 @@ class Config:
         telegram_allowed_user_ids: 허용된 사용자 ID 집합
         asset_manager_api_url: AssetManager API 서버 주소
         asset_manager_dir: AssetManager 소스 코드 디렉터리 경로
-        gemini_api_key: Google Gemini API 키
         storage_dir: 공통 저장소 디렉터리 경로
-        model_chat: 대화 및 자산 분석용 Gemini 모델명
         naver_client_id: 네이버 Client ID
         naver_client_secret: 네이버 Client Secret
     """
@@ -37,9 +33,7 @@ class Config:
     self.telegram_allowed_user_ids = telegram_allowed_user_ids
     self.asset_manager_api_url = asset_manager_api_url
     self.asset_manager_dir = asset_manager_dir
-    self.gemini_api_key = gemini_api_key
     self.storage_dir = storage_dir
-    self.model_chat = model_chat
     self.naver_client_id = naver_client_id
     self.naver_client_secret = naver_client_secret
 
@@ -77,17 +71,9 @@ class Config:
             f"TELEGRAM_ALLOWED_USER_IDS는 숫자 리스트여야 합니다: {item}"
         ) from exc
 
-    gemini_api_key = os.getenv("GEMINI_API_KEY")
-    if not gemini_api_key:
-      raise ValueError("GEMINI_API_KEY 환경변수가 필요합니다.")
-
     storage_dir = os.getenv("STORAGE_DIR")
     if not storage_dir:
       raise ValueError("STORAGE_DIR 환경변수가 필요합니다.")
-
-    model_chat = os.getenv("MODEL_CHAT")
-    if not model_chat:
-      raise ValueError("MODEL_CHAT 환경변수가 필요합니다.")
 
     naver_client_id = os.getenv("NAVER_API_CLIENT_ID")
     if not naver_client_id:
@@ -110,9 +96,7 @@ class Config:
         telegram_allowed_user_ids=telegram_allowed_user_ids,
         asset_manager_api_url=asset_manager_api_url,
         asset_manager_dir=asset_manager_dir,
-        gemini_api_key=gemini_api_key,
         storage_dir=storage_dir,
-        model_chat=model_chat,
         naver_client_id=naver_client_id,
         naver_client_secret=naver_client_secret,
     )
